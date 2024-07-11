@@ -1,0 +1,11 @@
+﻿subbanks:
+- color: ''
+  prefix: ''
+  suffix: _A4
+  tone_ranges:
+  - G#4-B7
+- color: ''
+  prefix: ''
+  suffix: _F4
+  tone_ranges:
+  - E4-G4
