@@ -1,95 +1,100 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Transactions;
 using OpenUtau.Api;
+using OpenUtau.Core;
 using OpenUtau.Core.Ustx;
-using static OpenUtau.Api.Phonemizer;
+
 
 namespace OpenUtau.Plugin.Builtin {
-    [Phonemizer("Korean CVVC-VVC Phonemizer", "KO CVVC-VVC", "NoelKM", language: "KO")]
-    public class KoreanCVVCVVCPhonemizer: Phonemizer {
+    /// <summary>
+    /// 한국어 CVVC-VVC Phonemizer입니다.
+    /// </summary>
+    [Phonemizer("한국어 CVVC-VVC 음소화기", "KO CVVC-VVC", "NoelKM", language: "KO")]
+    public class KoreanCVVCVVCPhonemizer : BaseKoreanPhonemizer
+    {
         private USinger singer;
 
-        /*
-        private static readonly string[] ChoSung = new string[]
+        /// <summary>
+        /// 가수를 설정합니다.
+        /// </summary>
+        /// <param name="singer">설정할 가수입니다.</param>
+        public override void SetSinger(USinger singer)
         {
-            "ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ",
-            "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"
-        };
+            if (this.singer == singer || singer == null || singer.SingerType != USingerType.Classic)
+            {
+                return;
+            }
 
-        private static readonly string[] JungSung = new string[]
-        {
-            "ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ", "ㅙ",
-            "ㅚ", "ㅛ", "ㅜ", "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ"
-        };
-
-
-        private static readonly string[] JongSung = new string[]
-        {
-            "", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "ㄻ",
-            "ㄼ", "ㄽ", "ㄾ", "ㄿ", "ㅀ", "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ", "ㅇ",
-            "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"
-        };
-        */
-
-        private static readonly string[] onsets = new string[]
-        {
-            "g", "kk", "n", "d", "tt", "r", "m", "b", "pp", "s", "ss",
-            "", "j", "jj", "ch", "k", "t", "p", "h"
-        };
-        private static readonly string[] vowels = new string[]
-        {
-            "a", "e", "ya", "ye", "eo", "e", "yeo", "ye", "o", "wa", "we",
-            "we", "yo", "u", "weo", "we", "wi", "yu", "eu", "eui", "i"
-        };
-        private static readonly string[] codas = new string[]
-        {
-            "", "kcl", "kcl", "kcl", "n", "n", "n", "tcl", "l", "l", "l",
-            "l", "l", "l", "l", "l", "m", "pcl", "pcl", "tcl", "tcl", "ng",
-            "tcl", "tcl", "kcl", "tcl", "pcl", "tcl"
-        };
-
-        const int BASECODE = 0xAC00;
-
-        private int[] Vectorize(char character) {
-            int code = character - BASECODE;
-
-            int ons = code / (21 * 28);
-            int vow = (code % (21 * 28)) / 28;
-            int cod = code % 28;
-
-            return new int[] { ons, vow, cod };
-        }
-        
-        public KoreanCVVCVVCPhonemizer() {
-
-        }
-
-        public override Result Process(Note[] notes, Note? prev, Note? next, Note? prevNeighbour, Note? nextNeighbour, Note[] prevs) {
-            var note = notes[0];
-            var unicode = ToUnicodeElements(note.lyric);
-            char lyric = char.Parse(note.lyric);
-            int[] vec = Vectorize(lyric);
-            string phones = "";
-            Phoneme[] phone_array = new Phoneme[vec.Length];
-            phone_array.Append(new Phoneme{
-                phoneme=onsets[vec[0]] 
-            });
-            phone_array.Append(new Phoneme {
-                phoneme=vowels[vec[1]] 
-            });
-            phone_array.Append(new Phoneme {
-                phoneme=codas[vec[2]] 
-            });
-
-            return new Result {
-                phonemes = phone_array
-            };
-        }
-
-        public override void SetSinger(USinger singer) {
             this.singer = singer;
         }
+
+        private string? FindInOto(String phoneme, Note note, bool nullIfNotFound = false)
+        {
+            return BaseKoreanPhonemizer.FindInOto(singer, phoneme, note, nullIfNotFound);
+        }
+
+        /// <summary>
+        /// 주어진 음표들을 음소로 변환합니다.
+        /// </summary>
+        /// <param name="notes">변환할 노트들의 배열입니다.</param>
+        /// <param name="prev">이전 노트입니다.</param>
+        /// <param name="next">다음 노트입니다.</param>
+        /// <param name="prevNeighbour">이전 인접 노트입니다.</param>
+        /// <param name="nextNeighbour">다음 인접 노트입니다.</param>
+        /// <param name="prevNeighbours">이전 인접 음표들의 배열입니다.</param>
+        /// <returns>변환된 음소 결과입니다.</returns>
+        public override Result ConvertPhonemes(Note[] notes, Note? prev, Note? next, Note? prevNeighbour, Note? nextNeighbour, Note[] prevNeighbours)
+        {
+            Note note = notes[0];
+            Hashtable lyrics = KoreanPhonemizerUtil.Variate(prevNeighbour, note, nextNeighbour);
+
+            string[] prevLyric = new string[] {
+                (string)lyrics[0],
+                (string)lyrics[1],
+                (string)lyrics[2],
+            };
+            string[] thisLyric = new string[] 
+            {
+                (string)lyrics[3],
+                (string)lyrics[4],
+                (string)lyrics[5],
+            };
+            string[] nextLyric = new string[] 
+            {
+                (string)lyrics[6],
+                (string)lyrics[7],
+                (string)lyrics[8],
+            };
+
+            if (thisLyric[0] == "null")
+            {
+                return GenerateResult(FindInOto(note.lyric, note));
+            }
+            else
+            {
+                // 함수 작성이 완료되면 교체 바람
+                return GenerateResult(FindInOto(note.lyric, note));
+            }
+        }
+
+        public override Result GenerateEndSound(Note[] notes, Note? prev, Note? next, Note? prevNeighbour, Note? nextNeighbour, Note[] prevNeighbours) {
+            Note note = notes[0];
+            if (prevNeighbour == null) {
+                return GenerateResult(FindInOto(note.lyric, note));
+            }
+
+            Hashtable lyrics = KoreanPhonemizerUtil.Separate(((Note)prevNeighbour).lyric);
+            string[] prevLyric = new string[] 
+            {
+                (string)lyrics[0],
+                (string)lyrics[1],
+                (string)lyrics[2],
+            };
+            return GenerateResult(FindInOto(note.lyric, note));
+        }
+
     }
 }
