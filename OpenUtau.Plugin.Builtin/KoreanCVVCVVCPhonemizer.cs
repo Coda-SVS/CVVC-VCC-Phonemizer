@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using OpenUtau.Api;
 using OpenUtau.Core;
 using OpenUtau.Core.Ustx;
@@ -31,7 +32,8 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅌ", "t" },
             { "ㅍ", "p" },
             { "ㅎ", "h" },
-            { "ㅇ", "null" }
+            { "ㅇ", "null" },
+            { "null", "null"}
         };
 
         private readonly Dictionary<string, string> y_onset_symbol = new Dictionary<string, string>
@@ -53,7 +55,8 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅌ", "ty" },
             { "ㅍ", "py" },
             { "ㅎ", "hy" },
-            { "ㅇ", "y" }
+            { "ㅇ", "y" },
+            { "null", "null"}
         };
 
         private readonly Dictionary<string, string> w_onset_symbol = new Dictionary<string, string>
@@ -75,7 +78,8 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅌ", "tw" },
             { "ㅍ", "pw" },
             { "ㅎ", "hw" },
-            { "ㅇ", "w" }
+            { "ㅇ", "w" },
+            { "null", "null"}
         };
 
         private readonly Dictionary<string, string> nucleus_symbol = new Dictionary<string, string>
@@ -88,6 +92,7 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅜ", "u" },
             { "ㅡ", "eu" },
             { "ㅣ", "i" },
+            { "null", "null"},
         };
 
         private readonly Dictionary<string, string> y_nucleus_symbol = new Dictionary<string, string>
@@ -98,6 +103,7 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅖ", "e" },
             { "ㅛ", "o" },
             { "ㅠ", "u" },
+            { "null", "null"},
         };
 
         private readonly Dictionary<string, string> w_nucleus_symbol = new Dictionary<string, string>
@@ -109,6 +115,7 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅞ", "e" },
             { "ㅟ", "i" },
             { "ㅢ", "i" },
+            { "null", "null"},
         };
 
         private readonly Dictionary<string, string> coda_symbol = new Dictionary<string, string>
@@ -132,7 +139,8 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅂ", "pcl" },
             { "ㅃ", "pcl" },
             { "ㅍ", "pcl" },
-            { " ", "null"}
+            { " ", "null"},
+            { "null", "null"},
         };
 
 
@@ -190,6 +198,8 @@ namespace OpenUtau.Plugin.Builtin {
                     (string)lyrics[7],
                     (string)lyrics[8],
             };
+            return CovertForCVVCVVC(notes, prevLyric, thisLyric, nextLyric, nextNeighbour);
+            /*
 
             if (thisLyric[0] == "null")
             {
@@ -199,7 +209,7 @@ namespace OpenUtau.Plugin.Builtin {
             {
                 // 함수 작성이 완료되면 교체 바람
                 return CovertForCVVCVVC(notes, prevLyric, thisLyric, nextLyric, nextNeighbour);
-            }
+            }*/
         }
 
         /// <summary>
@@ -268,6 +278,33 @@ namespace OpenUtau.Plugin.Builtin {
             }
             coda = coda_symbol[thisLyric[2]];
 
+            /*
+             * cv, vc 유닛 구성
+             */
+
+            string prefix = "";
+            string cv = (onset != "null" ? onset : "") + nucleus;
+            // string vc = nucleus +coda;
+
+
+            /*
+             * 1. - CV
+             * 공백 다음의 자음은 자음 앞에 -가 붙는다.
+             * 예시) 가, 나 -> R [- ga] R [- na]
+             * #R = 공백
+             */
+            if (prevLyric[0] == "null" && prevLyric[1] == "null" && prevLyric[2] == "null") {
+                prefix = "-";
+            }
+
+            /*
+             * 2. CV
+             * 자음 + 자음 또는 받침 + 자음은 뒤 자음 앞에 -를 붙이지 않는다.
+             * 예시) 가나 -> [- ga][a n][na], 라자 -> [- ra][a j][ja]
+             */
+
+
+
             // 좀 더 깔끔한 표현 필요 할 듯
             string phone = "";
             if (onset != "null") {
@@ -278,7 +315,18 @@ namespace OpenUtau.Plugin.Builtin {
                 phone += $" {coda}";
             }
 
-            return GenerateResult(FindInOto(phone, notes[0]));
+            if (coda != "null") 
+            {
+                return GenerateResult(
+                    FindInOto($"{(prefix != "" ? prefix + " " + cv : cv)}", notes[0]),
+                    FindInOto($"{nucleus}{(coda != "null" ? " " + coda : "")}", notes[0]),
+                    notes.Sum(n => n.duration)
+                );
+            }
+            else 
+            {
+                return GenerateResult(FindInOto($"{(prefix != "" ? prefix + " " + cv : cv)}", notes[0]));
+            }
         }
 
         
