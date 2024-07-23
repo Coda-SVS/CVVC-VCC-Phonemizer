@@ -349,6 +349,38 @@ namespace OpenUtau.Plugin.Builtin {
 
             // 아래에 추가 구현 하면 될 듯
 
+            // Functional 파이프라인 PoC
+            List<Func<List<PhoneticUnit>, List<PhoneticUnit>>> pipeline = new List<Func<List<PhoneticUnit>, List<PhoneticUnit>>>();
+
+            CVUnit cv = new CVUnit(phonemes[0], phonemes[1]);
+            VCUnit vc = new VCUnit(phonemes[1], phonemes[2]);
+            List<PhoneticUnit> phoneticUnits = new List<PhoneticUnit>();
+            phoneticUnits.Add(cv);
+            phoneticUnits.Add(vc);
+
+            pipeline.Add(sampleProcess1);
+            if (true) {
+                pipeline.Add(sampleProcess2);
+            } else {
+               pipeline.Add(sampleProcess3);
+            }
+
+            foreach (var proc in pipeline) {
+               phoneticUnits = proc(phoneticUnits);
+            }
+
+            // PoC 끝
+
+            return new List<PhoneticUnit>();
+        }
+
+        public List<PhoneticUnit> sampleProcess1(List<PhoneticUnit> phoneticUnits) {
+            return new List<PhoneticUnit>();
+        }
+        public List<PhoneticUnit> sampleProcess2(List<PhoneticUnit> phoneticUnits) {
+            return new List<PhoneticUnit>();
+        }
+        public List<PhoneticUnit> sampleProcess3(List<PhoneticUnit> phoneticUnits) {
             return new List<PhoneticUnit>();
         }
     }
