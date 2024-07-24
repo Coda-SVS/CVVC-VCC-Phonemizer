@@ -11,6 +11,11 @@ namespace OpenUtau.Plugins {
             return new KoreanCVVCVVCPhonemizer();
         }
 
+        protected KoreanCVVCVVCPhonemizer.PhoneticContext GetDummyContext(string lyric, string prevLyric="null") {
+            KoreanCVVCVVCPhonemizer phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
+            return phonemizer.InitContext(new Phonemizer.Note() { lyric = lyric }, new Phonemizer.Note() { lyric = prevLyric });
+        }
+
         [Theory]
         [InlineData("ko_cvvcvvc",
             new string[] { "안", "녕"},
@@ -59,6 +64,27 @@ namespace OpenUtau.Plugins {
             new string[] { "- a", "a n", "na" })] */
         public void PhonemizeTest(string singerName, string[] lyrics, string[] tones, string[] colors, string[] aliases) {
             RunPhonemizeTest(singerName, lyrics, RepeatString(lyrics.Length, ""), tones, colors, aliases);
+        }
+
+        [Fact]
+        public void AddCVUnitCase1() {
+            // 일반적인 상황에서 CV 유닛 추가
+            var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
+            var context = GetDummyContext("가", "나");
+            context = phonemizer.AddCVUnit(context);
+
+            Assert.Equal("ga", context.units[0].ToString());
+        }
+
+        [Fact]
+        public void AddCVUnitCase2() {
+            // 이전 유닛이 R 노트일 경우 CV 유닛에 prefix 추가
+            var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
+            var context = GetDummyContext("가", "R");
+            context = phonemizer.AddCVUnit(context);
+
+            Assert.Equal("-", context.units[0].prefix);
+            Assert.Equal("- ga", context.units[0].ToString());
         }
     }
 }

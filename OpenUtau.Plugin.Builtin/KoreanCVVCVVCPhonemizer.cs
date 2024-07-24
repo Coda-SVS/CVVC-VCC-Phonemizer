@@ -353,10 +353,7 @@ namespace OpenUtau.Plugin.Builtin {
         }
 
         public PhoneticContext MakePhone(PhoneticContext context) {
-            context.units.Add(new CVUnit(context.note.onset, context.note.nucleus));
-            if (!context.prev.HasValue) {
-                context.units.Last().prefix = "-";
-            }
+            context = AddCVUnit(context);
 
             return context;
         }
@@ -404,6 +401,13 @@ namespace OpenUtau.Plugin.Builtin {
             };
         }
 
-        
+        public PhoneticContext AddCVUnit(PhoneticContext context) {
+            context.units.Add(new CVUnit(context.note.onset, context.note.nucleus));
+            if (!context.prev.HasValue) {
+                context.units.Last().prefix = "-";
+            }
+
+            return context;
+        }
     }
 }
