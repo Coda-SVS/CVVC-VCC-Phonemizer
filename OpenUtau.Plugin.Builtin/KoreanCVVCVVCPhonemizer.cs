@@ -78,6 +78,27 @@ namespace OpenUtau.Plugin.Builtin {
             }
         }
 
+        public struct Lyrics {
+            public string onset;
+            public string nucleus;
+            public string coda;
+
+            public Lyrics(string[] phonemes) {
+                this.onset = phonemes[0];
+                this.nucleus = phonemes[1];
+                this.coda = phonemes[2];
+            }
+        }
+
+        public struct PhoneticContext {
+            public Lyrics note;
+            public Lyrics? prev;
+            public List<PhoneticUnit> units;
+            public Result? result;
+            public bool isNeighbour;
+            public bool isEnding;
+        }
+
         private readonly Dictionary<string, string> onset_symbol = new Dictionary<string, string>
         {
             { "ㄱ", "g" },
@@ -306,82 +327,83 @@ namespace OpenUtau.Plugin.Builtin {
                 }
             }
 
-            List<PhoneticUnit> phoneticUnits = new List<PhoneticUnit>();
-            
+            // R 노트에 대한 예외처리
+            if (note.lyric == "R") {
+                return MakeSimpleResult("R");
+            }
 
+            PhoneticContext context = InitContext(note, prev);
+            
             // 이전 노드가 있는 경우
             if (prevNeighbour.HasValue) {
-                phoneticUnits.AddRange(MakeEnding((Note)prevNeighbour, MakePhone(note)));
-            } else {
-               phoneticUnits.AddRange(MakePhone(note));
+                context = MakeEnding(context);
             }
+
+            context = MakePhone(context);
 
             // 다음 노드가 없는 경우
             if (!nextNeighbour.HasValue) {
-                phoneticUnits.AddRange(MakeEnding(note, new List<PhoneticUnit>()));
+                context.isEnding = true;
+                context = MakeEnding(context);
             }
 
             return new Result {
-                phonemes = phoneticUnits.Select(p => new Phoneme { phoneme = p.ToString() }).ToArray(),
+                phonemes = context.units.Select(p => new Phoneme { phoneme = p.ToString() }).ToArray(),
             };
         }
 
-        public List<PhoneticUnit> MakePhone(Note note) {
-            Hashtable lyrics = KoreanPhonemizerUtil.Separate(note.lyric.Normalize());
-            string[] phonemes = ConvertPhonemes(new string[] {
-                (string) lyrics[0],
-                (string) lyrics[1],
-                (string) lyrics[2]
-            });
+        public PhoneticContext MakePhone(PhoneticContext context) {
+            context.units.Add(new CVUnit(context.note.onset, context.note.nucleus));
+            if (!context.prev.HasValue) {
+                context.units.Last().prefix = "-";
+            }
 
-            // 아래에 추가 구현 하면 될 듯
-
-            return new List<PhoneticUnit>();
+            return context;
         }
 
-        public List<PhoneticUnit> MakeEnding(Note note, List<PhoneticUnit> next) {
-            Hashtable lyrics = KoreanPhonemizerUtil.Separate(note.lyric.Normalize());
-            string[] phonemes = ConvertPhonemes(new string[] {
-                (string) lyrics[0],
-                (string) lyrics[1],
-                (string) lyrics[2]
-            });
-
-            // 아래에 추가 구현 하면 될 듯
-
-            // Functional 파이프라인 PoC
-            List<Func<List<PhoneticUnit>, List<PhoneticUnit>>> pipeline = new List<Func<List<PhoneticUnit>, List<PhoneticUnit>>>();
-
-            CVUnit cv = new CVUnit(phonemes[0], phonemes[1]);
-            VCUnit vc = new VCUnit(phonemes[1], phonemes[2]);
-            List<PhoneticUnit> phoneticUnits = new List<PhoneticUnit>();
-            phoneticUnits.Add(cv);
-            phoneticUnits.Add(vc);
-
-            pipeline.Add(sampleProcess1);
-            if (true) {
-                pipeline.Add(sampleProcess2);
+        public PhoneticContext MakeEnding(PhoneticContext context) {
+            if (context.isEnding) {
+                if (context.note.coda != "null") {
+                    context.units.Add(new VCUnit(context.note.nucleus, context.note.coda));
+                }
             } else {
-               pipeline.Add(sampleProcess3);
+                if (context.prev != null) {
+                    if (context.prev.Value.coda != "null") {
+                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.prev.Value.coda));
+                    } else {
+                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.note.onset));
+                    }
+                }
             }
+            
+            return context;
+        }
 
-            foreach (var proc in pipeline) {
-               phoneticUnits = proc(phoneticUnits);
+        public PhoneticContext InitContext(Note note, Note? prev) {
+            Hashtable lyrics = KoreanPhonemizerUtil.Separate(note.lyric.Normalize());
+            string[] phonemes = ConvertPhonemes(new string[] {
+                (string)lyrics[0],
+                (string)lyrics[1],
+                (string)lyrics[2]
+            });
+            string[]? prevPhonemes = null;
+            if (prev != null && prev.Value.lyric != "R") {
+                Hashtable prevLyrics = KoreanPhonemizerUtil.Separate(prev.Value.lyric.Normalize());
+                prevPhonemes = ConvertPhonemes(new string[] {
+                    (string)prevLyrics[0],
+                    (string)prevLyrics[1],
+                    (string)prevLyrics[2]
+                });
             }
-
-            // PoC 끝
-
-            return new List<PhoneticUnit>();
+            
+            return new PhoneticContext { 
+                note = new Lyrics(phonemes),
+                prev = prevPhonemes != null ? new Lyrics(prevPhonemes) : (Lyrics?)null,
+                units = new List<PhoneticUnit>(),
+                result = null
+            };
         }
 
-        public List<PhoneticUnit> sampleProcess1(List<PhoneticUnit> phoneticUnits) {
-            return new List<PhoneticUnit>();
-        }
-        public List<PhoneticUnit> sampleProcess2(List<PhoneticUnit> phoneticUnits) {
-            return new List<PhoneticUnit>();
-        }
-        public List<PhoneticUnit> sampleProcess3(List<PhoneticUnit> phoneticUnits) {
-            return new List<PhoneticUnit>();
-        }
+        
     }
 }
