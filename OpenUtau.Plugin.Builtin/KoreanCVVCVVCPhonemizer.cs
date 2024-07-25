@@ -359,20 +359,8 @@ namespace OpenUtau.Plugin.Builtin {
         }
 
         public PhoneticContext MakeEnding(PhoneticContext context) {
-            if (context.isEnding) {
-                if (context.note.coda != "null") {
-                    context.units.Add(new VCUnit(context.note.nucleus, context.note.coda));
-                }
-            } else {
-                if (context.prev != null) {
-                    if (context.prev.Value.coda != "null") {
-                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.prev.Value.coda));
-                    } else {
-                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.note.onset));
-                    }
-                }
-            }
-            
+            context = AddVCUnit(context);
+            context = VC2VCy(context);
             return context;
         }
 
@@ -409,5 +397,42 @@ namespace OpenUtau.Plugin.Builtin {
 
             return context;
         }
+
+        public PhoneticContext AddVCUnit(PhoneticContext context) {
+            if (context.isEnding) {
+                if (context.note.coda != "null") {
+                    context.units.Add(new VCUnit(context.note.nucleus, context.note.coda));
+                }
+            } else {
+                if (context.prev != null) {
+                    if (context.prev.Value.coda != "null") {
+                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.prev.Value.coda));
+                    } else {
+                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.note.onset));
+                    }
+                }
+            }
+
+            return context;
+        }
+
+        public PhoneticContext VC2VCy(PhoneticContext context) {
+            if (context.note.nucleus == "i") {
+                if (context.note.onset == "s" 
+                    || context.note.onset == "j" 
+                    || context.note.onset == "ss") {
+                    if (context.units.Last() is VCUnit vc) {
+                        vc.coda += "y";
+                    } else if (context.units.Last() is VVCUnit vvc) {
+                        vvc.coda2 += "y";
+                    }
+                }
+            }
+
+            return context;
+        }
+
+
+
     }
 }

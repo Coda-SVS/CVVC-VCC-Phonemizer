@@ -47,6 +47,11 @@ namespace OpenUtau.Plugins {
             new string[] { "C4", "C4" },
             new string[] { "", "" },
             new string[] { "- sa", "a j", "ji" })]
+        [InlineData("ko_cvvcvvc",
+            new string[] { "아", "시"},
+            new string[] { "C4", "C4"},
+            new string[] { "", "" },
+            new string[] { "- a", "a sy", "si" })]
         /*[InlineData("ko_cvvcvvc",
             new string[] { "가", "이" },
             new string[] { "C4", "C4" },
@@ -85,6 +90,32 @@ namespace OpenUtau.Plugins {
 
             Assert.Equal("-", context.units[0].prefix);
             Assert.Equal("- ga", context.units[0].ToString());
+        }
+
+        [Fact]
+        public void AddVCUnitCase1() {
+            var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
+            var context = GetDummyContext("녕", "안");
+
+            context = phonemizer.AddVCUnit(context);
+
+            var vc = (KoreanCVVCVVCPhonemizer.VCUnit)context.units[0];
+
+            Assert.Equal("a", vc.nucleus);
+            Assert.Equal("n", vc.coda);
+        }
+
+        [Fact]
+        public void VC2VCyCase1() {
+            var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
+            var context = GetDummyContext("시", "아");
+
+            context = phonemizer.AddVCUnit(context);
+            context = phonemizer.VC2VCy(context);
+
+            var vc = (KoreanCVVCVVCPhonemizer.VCUnit)context.units[0];
+
+            Assert.Equal("sy", vc.coda);
         }
     }
 }
