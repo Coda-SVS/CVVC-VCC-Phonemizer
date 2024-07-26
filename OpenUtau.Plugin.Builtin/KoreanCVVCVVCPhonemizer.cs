@@ -61,6 +61,10 @@ namespace OpenUtau.Plugin.Builtin {
                this.coda2 = coda2;
             }
 
+            public VVCUnit(VCUnit vc, CVUnit cv) : base(vc.nucleus, vc.coda) {
+               this.coda2 = cv.onset;
+            }
+
             public override string ToString() { 
                 return $"{nucleus}{coda} {coda2}";
             }
@@ -71,6 +75,10 @@ namespace OpenUtau.Plugin.Builtin {
 
             public VVUnit(string nucleus, string nucleus2) : base(nucleus) {
                 this.nucleus2 = nucleus2;
+            }
+
+            public VVUnit(VCUnit vc, CVUnit cv) : base(vc.nucleus) {
+                this.nucleus2 = cv.nucleus;
             }
 
             public override string ToString() {
@@ -355,6 +363,9 @@ namespace OpenUtau.Plugin.Builtin {
 
         public PhoneticContext MakePhone(PhoneticContext context) {
             context = AddCVUnit(context);
+            if (context.prev.HasValue) {
+                context = CV2VV(context);
+            }
 
             return context;
         }
@@ -479,5 +490,14 @@ namespace OpenUtau.Plugin.Builtin {
             return context;
         }
 
+        public PhoneticContext CV2VV(PhoneticContext context) {
+            if (context.note.onset == "null" && context.prev.Value.coda == "null") {
+                var vv = new VVUnit(context.prev.Value.nucleus, context.note.nucleus);
+                context.units.Clear();
+                context.units.Add(vv);
+            }
+
+            return context;
+        }
     }
 }
