@@ -46,12 +46,27 @@ namespace OpenUtau.Plugins {
             new string[] { "사", "지" },
             new string[] { "C4", "C4" },
             new string[] { "", "" },
-            new string[] { "- sa", "a j", "ji" })]
+            new string[] { "- sa", "a jy", "ji" })]
         [InlineData("ko_cvvcvvc",
             new string[] { "아", "시"},
             new string[] { "C4", "C4"},
             new string[] { "", "" },
             new string[] { "- a", "a sy", "si" })]
+        [InlineData("ko_cvvcvvc",
+            new string[] { "안", "까" },
+            new string[] { "C4", "C4" },
+            new string[] { "", "" },
+            new string[] { "- a", "an kcl", "kka" })]
+        [InlineData("ko_cvvcvvc",
+            new string[] { "알", "찌" },
+            new string[] { "C4", "C4" },
+            new string[] { "", "" },
+            new string[] { "- a", "al tcl", "jji" })]
+        [InlineData("ko_cvvcvvc",
+            new string[] { "잉", "싸" },
+            new string[] { "C4", "C4" },
+            new string[] { "", "" },
+            new string[] { "- i", "ing ss", "ssa" })]
         /*[InlineData("ko_cvvcvvc",
             new string[] { "가", "이" },
             new string[] { "C4", "C4" },
@@ -116,6 +131,22 @@ namespace OpenUtau.Plugins {
             var vc = (KoreanCVVCVVCPhonemizer.VCUnit)context.units[0];
 
             Assert.Equal("sy", vc.coda);
+        }
+
+        [Fact]
+        public void VC2VVCUnitCase1() {
+           var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
+            var context = GetDummyContext("피", "밤");
+
+            context = phonemizer.AddVCUnit(context);
+            context = phonemizer.VC2VCy(context);
+            context = phonemizer.VC2VVC(context);
+
+            Assert.True(context.units[0] is KoreanCVVCVVCPhonemizer.VVCUnit);
+
+            var vvc = (KoreanCVVCVVCPhonemizer.VVCUnit)context.units[0];
+
+            Assert.Equal("pcl", vvc.coda2);
         }
     }
 }

@@ -113,6 +113,7 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅅ", "s" },
             { "ㅆ", "ss" },
             { "ㅈ", "j" },
+            { "ㅉ", "jj" },
             { "ㅊ", "ch" },
             { "ㅋ", "k" },
             { "ㅌ", "t" },
@@ -360,7 +361,11 @@ namespace OpenUtau.Plugin.Builtin {
 
         public PhoneticContext MakeEnding(PhoneticContext context) {
             context = AddVCUnit(context);
-            context = VC2VCy(context);
+            if (!context.isEnding) {
+                context = VC2VCy(context);
+                context = VC2VVC(context);
+            }
+            
             return context;
         }
 
@@ -432,7 +437,47 @@ namespace OpenUtau.Plugin.Builtin {
             return context;
         }
 
+        public PhoneticContext VC2VVC(PhoneticContext context) {
+            if (context.prev != null) {
+                if (context.prev.Value.coda == "n"
+                || context.prev.Value.coda == "m"
+                || context.prev.Value.coda == "l"
+                || context.prev.Value.coda == "ng") {
 
+                    if (context.note.onset == "gh"
+                        || context.note.onset == "k"
+                        || context.note.onset == "kk") {
+                        VCUnit vc = (VCUnit)context.units.Last();
+                        VVCUnit vcc = new VVCUnit("kcl", vc);
+                        context.units.RemoveAt(context.units.Count - 1);
+                        context.units.Add(vcc);
+                    } else if (context.note.onset == "dh"
+                        || context.note.onset == "t"
+                        || context.note.onset == "tt"
+                        || context.note.onset == "jh"
+                        || context.note.onset == "jj") {
+                        VCUnit vc = (VCUnit)context.units.Last();
+                        VVCUnit vcc = new VVCUnit("tcl", vc);
+                        context.units.RemoveAt(context.units.Count - 1);
+                        context.units.Add(vcc);
+                    } else if (context.note.onset == "bh"
+                        || context.note.onset == "pp"
+                        || context.note.onset == "p") {
+                        VCUnit vc = (VCUnit)context.units.Last();
+                        VVCUnit vcc = new VVCUnit("pcl", vc);
+                        context.units.RemoveAt(context.units.Count - 1);
+                        context.units.Add(vcc);
+                    } else if (context.note.onset == "ss") {
+                        VCUnit vc = (VCUnit)context.units.Last();
+                        VVCUnit vcc = new VVCUnit("ss", vc);
+                        context.units.RemoveAt(context.units.Count - 1);
+                        context.units.Add(vcc);
+                    }
+                }
+            }
+            
+            return context;
+        }
 
     }
 }
