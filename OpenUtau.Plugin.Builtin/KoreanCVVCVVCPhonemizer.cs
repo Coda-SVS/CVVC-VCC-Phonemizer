@@ -490,15 +490,15 @@ namespace OpenUtau.Plugin.Builtin {
         /// <param name="context"></param>
         /// <returns></returns>
         public PhoneticContext VC2VCy(PhoneticContext context) {
-            if (!context.isEnding) {
-                if (context.note.nucleus == "i" && context.prev.Value.coda == "null") {
-                    if (cy.Contains(context.note.onset)) { 
-                        if (context.units.Last() is VCUnit vc) {
-                            vc.coda += "y";
-                        } else if (context.units.Last() is VVCUnit vvc) {
-                            vvc.coda2 += "y";
-                        }
-                    }
+            if (context.isEnding || (context.note.nucleus != "i" || context.prev.Value.coda != "null")) {
+                return context;
+            }
+
+            if (cy.Contains(context.note.onset)) {
+                if (context.units.Last() is VCUnit vc) {
+                    vc.coda += "y";
+                } else if (context.units.Last() is VVCUnit vvc) {
+                    vvc.coda2 += "y";
                 }
             }
 
