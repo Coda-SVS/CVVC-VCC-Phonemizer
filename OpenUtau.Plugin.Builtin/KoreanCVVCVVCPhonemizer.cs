@@ -240,7 +240,7 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅍ", "pcl" },
         };
 
-        private readonly Dictionary<string, string> vc2vvc = new Dictionary<string, string> {
+        private readonly Dictionary<string, string> vc2vvc_symbol = new Dictionary<string, string> {
             {"gh", "kcl" },
             {"k", "kcl" },
             {"kk", "kcl" },
@@ -255,7 +255,7 @@ namespace OpenUtau.Plugin.Builtin {
             {"ss", "ss" },
         };
 
-        private readonly HashSet<String> cy = new HashSet<string> {
+        private readonly HashSet<String> cy_symbol = new HashSet<string> {
             "s", "j", "ss"
         };
 
@@ -494,7 +494,7 @@ namespace OpenUtau.Plugin.Builtin {
                 return context;
             }
 
-            if (cy.Contains(context.note.onset)) {
+            if (cy_symbol.Contains(context.note.onset)) {
                 if (context.units.Last() is VCUnit vc) {
                     vc.coda += "y";
                 } else if (context.units.Last() is VVCUnit vvc) {
@@ -511,9 +511,9 @@ namespace OpenUtau.Plugin.Builtin {
         /// <returns></returns>
         public PhoneticContext VC2VVC(PhoneticContext context) {
             if (!context.isEnding && context.prev != null) {
-                if (n_coda_symbol.ContainsValue(context.prev.Value.coda) && vc2vvc.ContainsKey(context.note.onset)) {
+                if (n_coda_symbol.ContainsValue(context.prev.Value.coda) && vc2vvc_symbol.ContainsKey(context.note.onset)) {
                     VCUnit vc = (VCUnit)context.units.Last();
-                    VVCUnit vcc = new VVCUnit(vc2vvc[context.note.onset], vc);
+                    VVCUnit vcc = new VVCUnit(vc2vvc_symbol[context.note.onset], vc);
                     context.units.RemoveAt(context.units.Count - 1);
                     context.units.Add(vcc);
                 }
