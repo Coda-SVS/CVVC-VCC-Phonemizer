@@ -511,11 +511,8 @@ namespace OpenUtau.Plugin.Builtin {
         public PhoneticContext VC2VVC(PhoneticContext context) {
             if (!context.isEnding) {
                 if (context.prev != null) {
-                    if (context.prev.Value.coda == "n"
-                    || context.prev.Value.coda == "m"
-                    || context.prev.Value.coda == "l"
-                    || context.prev.Value.coda == "ng") {
-
+                    string prevCoda = context.prev.Value.coda;
+                    if(n_coda_symbol.ContainsValue(prevCoda)) {
                         if (context.note.onset == "gh"
                             || context.note.onset == "k"
                             || context.note.onset == "kk") {
