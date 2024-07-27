@@ -255,6 +255,10 @@ namespace OpenUtau.Plugin.Builtin {
             {"ss", "ss" },
         };
 
+        private readonly HashSet<String> cy = new HashSet<string> {
+            "s", "j", "ss"
+        };
+
         private USinger singer;
 
         /// <summary>
@@ -544,7 +548,6 @@ namespace OpenUtau.Plugin.Builtin {
                     context.units.Add(vv);
                 }
             }
-            
             return context;
         }
     }
