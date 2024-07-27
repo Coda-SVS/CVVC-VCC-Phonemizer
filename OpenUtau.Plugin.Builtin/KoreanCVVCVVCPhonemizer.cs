@@ -21,6 +21,7 @@ namespace OpenUtau.Plugin.Builtin {
             public PhoneticUnit(string nucleus, int position, string prefix = "") {
                 this.nucleus = nucleus;
                 this.prefix = prefix;
+                this.position = position;
             }
         }
 
@@ -92,12 +93,16 @@ namespace OpenUtau.Plugin.Builtin {
             public string nucleus;
             public string coda;
             public int position;
+            public int duration;
+            public int halfDuration;
 
-            public Lyrics(string[] phonemes, int position) {
+            public Lyrics(string[] phonemes, int position, int duration) {
                 this.onset = phonemes[0];
                 this.nucleus = phonemes[1];
                 this.coda = phonemes[2];
                 this.position = position;
+                this.duration = duration;
+                this.halfDuration = duration / 2;
             }
         }
 
@@ -440,8 +445,8 @@ namespace OpenUtau.Plugin.Builtin {
             }
             
             return new PhoneticContext { 
-                note = new Lyrics(phonemes, note.position),
-                prev = prevPhonemes != null ? new Lyrics(prevPhonemes, prev.Value.position) : (Lyrics?)null,
+                note = new Lyrics(phonemes, note.position, note.duration),
+                prev = prevPhonemes != null ? new Lyrics(prevPhonemes, prev.Value.position, prev.Value.duration) : (Lyrics?)null,
                 units = new List<PhoneticUnit>()
             };
         }
@@ -468,14 +473,14 @@ namespace OpenUtau.Plugin.Builtin {
         public PhoneticContext AddVCUnit(PhoneticContext context) {
             if (context.isEnding) {
                 if (context.note.coda != "null") {
-                    context.units.Add(new VCUnit(context.note.nucleus, context.note.coda, context.note.position + context.note.position/2));
+                    context.units.Add(new VCUnit(context.note.nucleus, context.note.coda, context.note.position + context.note.halfDuration));
                 }
             } else {
                 if (context.prev != null) {
                     if (context.prev.Value.coda != "null") {
-                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.prev.Value.coda, context.note.position - context.prev.Value.position/2));
+                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.prev.Value.coda, context.note.position - context.prev.Value.halfDuration));
                     } else {
-                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.note.onset, context.note.position - context.prev.Value.position / 2));
+                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.note.onset, context.note.position - context.prev.Value.halfDuration));
                     }
                 }
             }
