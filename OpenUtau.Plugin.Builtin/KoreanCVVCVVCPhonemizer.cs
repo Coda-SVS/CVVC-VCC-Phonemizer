@@ -213,12 +213,16 @@ namespace OpenUtau.Plugin.Builtin {
             { "null", "null"},
         };
 
-        private readonly Dictionary<string, string> coda_symbol = new Dictionary<string, string>
+        private readonly Dictionary<string, string> n_coda_symbol = new Dictionary<string, string>
         {
             { "ㄴ", "n" },
             { "ㄹ", "l" },
             { "ㅁ", "m" },
             { "ㅇ", "ng" },
+        };
+
+        private readonly Dictionary<string, string> k_coda_symbol = new Dictionary<string, string>
+        {
             { "ㄱ", "kcl" },
             { "ㅋ", "kcl" },
             { "ㄲ", "kcl" },
@@ -234,8 +238,25 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅂ", "pcl" },
             { "ㅃ", "pcl" },
             { "ㅍ", "pcl" },
-            { " ", "null"},
-            { "null", "null"},
+        };
+
+        private readonly Dictionary<string, string> vc2vvc_symbol = new Dictionary<string, string> {
+            {"gh", "kcl" },
+            {"k", "kcl" },
+            {"kk", "kcl" },
+            {"dh", "tcl" },
+            {"t", "tcl" },
+            {"tt", "tcl" },
+            {"jh", "tcl" },
+            {"jj", "tcl" },
+            {"bh", "pcl" },
+            {"pp", "pcl" },
+            {"p", "pcl" },
+            {"ss", "ss" },
+        };
+
+        private readonly HashSet<String> cy_symbol = new HashSet<string> {
+            "s", "j", "ss"
         };
 
         private USinger singer;
@@ -269,7 +290,16 @@ namespace OpenUtau.Plugin.Builtin {
                 onset = onset_symbol[lyrics[0]];
                 nucleus = nucleus_symbol[lyrics[1]];
             }
-            coda = coda_symbol[lyrics[2]];
+
+            try {
+                coda = n_coda_symbol[lyrics[2]];
+            } catch(KeyNotFoundException ne) {
+                try {
+                    coda = k_coda_symbol[lyrics[2]];
+                } catch(KeyNotFoundException ke) {
+                    coda = "null";
+                }
+            }
 
             return new string[] { onset, nucleus, coda };
         }
@@ -460,20 +490,17 @@ namespace OpenUtau.Plugin.Builtin {
         /// <param name="context"></param>
         /// <returns></returns>
         public PhoneticContext VC2VCy(PhoneticContext context) {
-            if (!context.isEnding) {
-                if (context.note.nucleus == "i" && context.prev.Value.coda == "null") {
-                    if (context.note.onset == "s"
-                        || context.note.onset == "j"
-                        || context.note.onset == "ss") {
-                        if (context.units.Last() is VCUnit vc) {
-                            vc.coda += "y";
-                        } else if (context.units.Last() is VVCUnit vvc) {
-                            vvc.coda2 += "y";
-                        }
-                    }
-                }
+            if (context.isEnding || (context.note.nucleus != "i" || context.prev.Value.coda != "null")) {
+                return context;
             }
 
+            if (cy_symbol.Contains(context.note.onset)) {
+                if (context.units.Last() is VCUnit vc) {
+                    vc.coda += "y";
+                } else if (context.units.Last() is VVCUnit vvc) {
+                    vvc.coda2 += "y";
+                }
+            }
             return context;
         }
 
@@ -483,46 +510,14 @@ namespace OpenUtau.Plugin.Builtin {
         /// <param name="context"></param>
         /// <returns></returns>
         public PhoneticContext VC2VVC(PhoneticContext context) {
-            if (!context.isEnding) {
-                if (context.prev != null) {
-                    if (context.prev.Value.coda == "n"
-                    || context.prev.Value.coda == "m"
-                    || context.prev.Value.coda == "l"
-                    || context.prev.Value.coda == "ng") {
-
-                        if (context.note.onset == "gh"
-                            || context.note.onset == "k"
-                            || context.note.onset == "kk") {
-                            VCUnit vc = (VCUnit)context.units.Last();
-                            VVCUnit vcc = new VVCUnit("kcl", vc);
-                            context.units.RemoveAt(context.units.Count - 1);
-                            context.units.Add(vcc);
-                        } else if (context.note.onset == "dh"
-                            || context.note.onset == "t"
-                            || context.note.onset == "tt"
-                            || context.note.onset == "jh"
-                            || context.note.onset == "jj") {
-                            VCUnit vc = (VCUnit)context.units.Last();
-                            VVCUnit vcc = new VVCUnit("tcl", vc);
-                            context.units.RemoveAt(context.units.Count - 1);
-                            context.units.Add(vcc);
-                        } else if (context.note.onset == "bh"
-                            || context.note.onset == "pp"
-                            || context.note.onset == "p") {
-                            VCUnit vc = (VCUnit)context.units.Last();
-                            VVCUnit vcc = new VVCUnit("pcl", vc);
-                            context.units.RemoveAt(context.units.Count - 1);
-                            context.units.Add(vcc);
-                        } else if (context.note.onset == "ss") {
-                            VCUnit vc = (VCUnit)context.units.Last();
-                            VVCUnit vcc = new VVCUnit("ss", vc);
-                            context.units.RemoveAt(context.units.Count - 1);
-                            context.units.Add(vcc);
-                        }
-                    }
+            if (!context.isEnding && context.prev != null) {
+                if (n_coda_symbol.ContainsValue(context.prev.Value.coda) && vc2vvc_symbol.ContainsKey(context.note.onset)) {
+                    VCUnit vc = (VCUnit)context.units.Last();
+                    VVCUnit vcc = new VVCUnit(vc2vvc_symbol[context.note.onset], vc);
+                    context.units.RemoveAt(context.units.Count - 1);
+                    context.units.Add(vcc);
                 }
             }
-
             return context;
         }
 
@@ -539,7 +534,6 @@ namespace OpenUtau.Plugin.Builtin {
                     context.units.Add(vv);
                 }
             }
-            
             return context;
         }
     }
