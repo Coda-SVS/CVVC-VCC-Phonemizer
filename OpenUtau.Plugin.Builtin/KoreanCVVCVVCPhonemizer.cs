@@ -244,6 +244,21 @@ namespace OpenUtau.Plugin.Builtin {
             { "null", "null"}
         };
 
+        private readonly Dictionary<string, string> vc2vvc = new Dictionary<string, string> {
+            {"gh", "kcl" },
+            {"k", "kcl" },
+            {"kk", "kcl" },
+            {"dh", "tcl" },
+            {"t", "tcl" },
+            {"tt", "tcl" },
+            {"jh", "tcl" },
+            {"jj", "tcl" },
+            {"bh", "pcl" },
+            {"pp", "pcl" },
+            {"p", "pcl" },
+            {"ss", "ss" },
+        };
+
         private USinger singer;
 
         /// <summary>
