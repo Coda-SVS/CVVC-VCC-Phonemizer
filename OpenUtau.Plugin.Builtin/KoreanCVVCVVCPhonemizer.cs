@@ -505,28 +505,17 @@ namespace OpenUtau.Plugin.Builtin {
         }
 
         /// <summary>
-        /// (프로세스) m, n, l, ng 뒤에 gh, k, dh, t, jh, bh, p, kk, tt, ss, jj, pp가 오는 경우 VVC로 변환
-        /// </summary>
-        /// <param name="context"></param>
-        /// <returns></returns>
-        public PhoneticContext processVC2VVC(PhoneticContext context) {
-            VCUnit vc = (VCUnit)context.units.Last();
-            VVCUnit vcc = new VVCUnit(vc2vvc[context.note.onset], vc);
-            context.units.RemoveAt(context.units.Count - 1);
-            context.units.Add(vcc);
-
-            return context;
-        }
-
-        /// <summary>
-        /// (조건) m, n, l, ng 뒤에 gh, k, dh, t, jh, bh, p, kk, tt, ss, jj, pp가 오는 경우 VVC로 변환
+        /// m, n, l, ng 뒤에 gh, k, dh, t, jh, bh, p, kk, tt, ss, jj, pp가 오는 경우 VVC로 변환
         /// </summary>
         /// <param name="context"></param>
         /// <returns></returns>
         public PhoneticContext VC2VVC(PhoneticContext context) {
             if (!context.isEnding && context.prev != null) {
                 if (n_coda_symbol.ContainsValue(context.prev.Value.coda) && vc2vvc.ContainsKey(context.note.onset)) {
-                    context = processVC2VVC(context);
+                    VCUnit vc = (VCUnit)context.units.Last();
+                    VVCUnit vcc = new VVCUnit(vc2vvc[context.note.onset], vc);
+                    context.units.RemoveAt(context.units.Count - 1);
+                    context.units.Add(vcc);
                 }
             }
             return context;
