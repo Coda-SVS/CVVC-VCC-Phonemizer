@@ -219,8 +219,6 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㄹ", "l" },
             { "ㅁ", "m" },
             { "ㅇ", "ng" },
-            { " ", "null"},
-            { "null", "null"}
         };
 
         private readonly Dictionary<string, string> k_coda_symbol = new Dictionary<string, string>
@@ -240,8 +238,6 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅂ", "pcl" },
             { "ㅃ", "pcl" },
             { "ㅍ", "pcl" },
-            { " ", "null"},
-            { "null", "null"}
         };
 
         private readonly Dictionary<string, string> vc2vvc = new Dictionary<string, string> {
@@ -291,9 +287,14 @@ namespace OpenUtau.Plugin.Builtin {
                 nucleus = nucleus_symbol[lyrics[1]];
             }
 
-            coda = n_coda_symbol[lyrics[2]];
-            if(coda == "null") {
-                coda = k_coda_symbol[lyrics[2]];
+            try {
+                coda = n_coda_symbol[lyrics[2]];
+            } catch(KeyNotFoundException ne) {
+                try {
+                    coda = k_coda_symbol[lyrics[2]];
+                } catch(KeyNotFoundException ke) {
+                    coda = "null";
+                }
             }
 
             return new string[] { onset, nucleus, coda };
