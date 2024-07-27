@@ -503,6 +503,15 @@ namespace OpenUtau.Plugin.Builtin {
             return context;
         }
 
+        public PhoneticContext processVC2VVC(PhoneticContext context) {
+            VCUnit vc = (VCUnit)context.units.Last();
+            VVCUnit vcc = new VVCUnit(vc2vvc[context.note.onset], vc);
+            context.units.RemoveAt(context.units.Count - 1);
+            context.units.Add(vcc);
+
+            return context;
+        }
+
         /// <summary>
         /// m, n, l, ng 뒤에 gh, k, dh, t, jh, bh, p, kk, tt, ss, jj, pp가 오는 경우 VVC로 변환
         /// </summary>
@@ -511,41 +520,11 @@ namespace OpenUtau.Plugin.Builtin {
         public PhoneticContext VC2VVC(PhoneticContext context) {
             if (!context.isEnding) {
                 if (context.prev != null) {
-                    string prevCoda = context.prev.Value.coda;
-                    if(n_coda_symbol.ContainsValue(prevCoda)) {
-                        if (context.note.onset == "gh"
-                            || context.note.onset == "k"
-                            || context.note.onset == "kk") {
-                            VCUnit vc = (VCUnit)context.units.Last();
-                            VVCUnit vcc = new VVCUnit("kcl", vc);
-                            context.units.RemoveAt(context.units.Count - 1);
-                            context.units.Add(vcc);
-                        } else if (context.note.onset == "dh"
-                            || context.note.onset == "t"
-                            || context.note.onset == "tt"
-                            || context.note.onset == "jh"
-                            || context.note.onset == "jj") {
-                            VCUnit vc = (VCUnit)context.units.Last();
-                            VVCUnit vcc = new VVCUnit("tcl", vc);
-                            context.units.RemoveAt(context.units.Count - 1);
-                            context.units.Add(vcc);
-                        } else if (context.note.onset == "bh"
-                            || context.note.onset == "pp"
-                            || context.note.onset == "p") {
-                            VCUnit vc = (VCUnit)context.units.Last();
-                            VVCUnit vcc = new VVCUnit("pcl", vc);
-                            context.units.RemoveAt(context.units.Count - 1);
-                            context.units.Add(vcc);
-                        } else if (context.note.onset == "ss") {
-                            VCUnit vc = (VCUnit)context.units.Last();
-                            VVCUnit vcc = new VVCUnit("ss", vc);
-                            context.units.RemoveAt(context.units.Count - 1);
-                            context.units.Add(vcc);
-                        }
+                    if(n_coda_symbol.ContainsValue(context.prev.Value.coda) && vc2vvc.ContainsKey(context.note.onset)) {
+                        context = processVC2VVC(context);
                     }
                 }
             }
-
             return context;
         }
 
