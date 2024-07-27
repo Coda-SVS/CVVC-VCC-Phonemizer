@@ -61,6 +61,10 @@ namespace OpenUtau.Plugin.Builtin {
                this.coda2 = coda2;
             }
 
+            public VVCUnit(VCUnit vc, CVUnit cv) : base(vc.nucleus, vc.coda) {
+               this.coda2 = cv.onset;
+            }
+
             public override string ToString() { 
                 return $"{nucleus}{coda} {coda2}";
             }
@@ -71,6 +75,10 @@ namespace OpenUtau.Plugin.Builtin {
 
             public VVUnit(string nucleus, string nucleus2) : base(nucleus) {
                 this.nucleus2 = nucleus2;
+            }
+
+            public VVUnit(VCUnit vc, CVUnit cv) : base(vc.nucleus) {
+                this.nucleus2 = cv.nucleus;
             }
 
             public override string ToString() {
@@ -113,6 +121,7 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅅ", "s" },
             { "ㅆ", "ss" },
             { "ㅈ", "j" },
+            { "ㅉ", "jj" },
             { "ㅊ", "ch" },
             { "ㅋ", "k" },
             { "ㅌ", "t" },
@@ -302,7 +311,7 @@ namespace OpenUtau.Plugin.Builtin {
         }
 
         /// <summary>
-        /// 
+        /// 포네마이저 메인 루틴
         /// </summary>
         /// <param name="notes">변환 할 노트</param>
         /// <param name="prev">이전 노트</param>
@@ -352,18 +361,37 @@ namespace OpenUtau.Plugin.Builtin {
             };
         }
 
+        /// <summary>
+        /// 노트의 앞부분에 해당하는 음소를 처리합니다.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
         public PhoneticContext MakePhone(PhoneticContext context) {
             context = AddCVUnit(context);
+            context = CV2VV(context);
 
             return context;
         }
 
+        /// <summary>
+        /// 노트의 뒷부분에 해당하는 음소를 처리합니다.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
         public PhoneticContext MakeEnding(PhoneticContext context) {
             context = AddVCUnit(context);
             context = VC2VCy(context);
+            context = VC2VVC(context);
+
             return context;
         }
 
+        /// <summary>
+        /// 파이프라인을 실행하기 위한 문맥 정보를 생성합니다.
+        /// </summary>
+        /// <param name="note"></param>
+        /// <param name="prev"></param>
+        /// <returns></returns>
         public PhoneticContext InitContext(Note note, Note? prev) {
             Hashtable lyrics = KoreanPhonemizerUtil.Separate(note.lyric.Normalize());
             string[] phonemes = ConvertPhonemes(new string[] {
@@ -389,6 +417,11 @@ namespace OpenUtau.Plugin.Builtin {
             };
         }
 
+        /// <summary>
+        /// 초성과 중성을 합쳐 CVUnit으로 변환합니다.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
         public PhoneticContext AddCVUnit(PhoneticContext context) {
             context.units.Add(new CVUnit(context.note.onset, context.note.nucleus));
             if (!context.prev.HasValue) {
@@ -398,6 +431,11 @@ namespace OpenUtau.Plugin.Builtin {
             return context;
         }
 
+        /// <summary>
+        /// 중성과 종성을 합쳐 VCUnit으로 변환합니다.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
         public PhoneticContext AddVCUnit(PhoneticContext context) {
             if (context.isEnding) {
                 if (context.note.coda != "null") {
@@ -416,15 +454,22 @@ namespace OpenUtau.Plugin.Builtin {
             return context;
         }
 
+        /// <summary>
+        /// 모음 뒤에 si, ji, ssi가 오는 경우 y추가
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
         public PhoneticContext VC2VCy(PhoneticContext context) {
-            if (context.note.nucleus == "i") {
-                if (context.note.onset == "s" 
-                    || context.note.onset == "j" 
-                    || context.note.onset == "ss") {
-                    if (context.units.Last() is VCUnit vc) {
-                        vc.coda += "y";
-                    } else if (context.units.Last() is VVCUnit vvc) {
-                        vvc.coda2 += "y";
+            if (!context.isEnding) {
+                if (context.note.nucleus == "i" && context.prev.Value.coda == "null") {
+                    if (context.note.onset == "s"
+                        || context.note.onset == "j"
+                        || context.note.onset == "ss") {
+                        if (context.units.Last() is VCUnit vc) {
+                            vc.coda += "y";
+                        } else if (context.units.Last() is VVCUnit vvc) {
+                            vvc.coda2 += "y";
+                        }
                     }
                 }
             }
@@ -432,7 +477,70 @@ namespace OpenUtau.Plugin.Builtin {
             return context;
         }
 
+        /// <summary>
+        /// m, n, l, ng 뒤에 gh, k, dh, t, jh, bh, p, kk, tt, ss, jj, pp가 오는 경우 VVC로 변환
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        public PhoneticContext VC2VVC(PhoneticContext context) {
+            if (!context.isEnding) {
+                if (context.prev != null) {
+                    if (context.prev.Value.coda == "n"
+                    || context.prev.Value.coda == "m"
+                    || context.prev.Value.coda == "l"
+                    || context.prev.Value.coda == "ng") {
 
+                        if (context.note.onset == "gh"
+                            || context.note.onset == "k"
+                            || context.note.onset == "kk") {
+                            VCUnit vc = (VCUnit)context.units.Last();
+                            VVCUnit vcc = new VVCUnit("kcl", vc);
+                            context.units.RemoveAt(context.units.Count - 1);
+                            context.units.Add(vcc);
+                        } else if (context.note.onset == "dh"
+                            || context.note.onset == "t"
+                            || context.note.onset == "tt"
+                            || context.note.onset == "jh"
+                            || context.note.onset == "jj") {
+                            VCUnit vc = (VCUnit)context.units.Last();
+                            VVCUnit vcc = new VVCUnit("tcl", vc);
+                            context.units.RemoveAt(context.units.Count - 1);
+                            context.units.Add(vcc);
+                        } else if (context.note.onset == "bh"
+                            || context.note.onset == "pp"
+                            || context.note.onset == "p") {
+                            VCUnit vc = (VCUnit)context.units.Last();
+                            VVCUnit vcc = new VVCUnit("pcl", vc);
+                            context.units.RemoveAt(context.units.Count - 1);
+                            context.units.Add(vcc);
+                        } else if (context.note.onset == "ss") {
+                            VCUnit vc = (VCUnit)context.units.Last();
+                            VVCUnit vcc = new VVCUnit("ss", vc);
+                            context.units.RemoveAt(context.units.Count - 1);
+                            context.units.Add(vcc);
+                        }
+                    }
+                }
+            }
 
+            return context;
+        }
+
+        /// <summary>
+        /// VCUnit에 coda가 없고, CVUnit에 onset이 없는 경우 VV로 변환
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        public PhoneticContext CV2VV(PhoneticContext context) {
+            if (context.prev.HasValue) {
+                if (context.note.onset == "null" && context.prev.Value.coda == "null") {
+                    var vv = new VVUnit(context.prev.Value.nucleus, context.note.nucleus);
+                    context.units.Clear();
+                    context.units.Add(vv);
+                }
+            }
+            
+            return context;
+        }
     }
 }
