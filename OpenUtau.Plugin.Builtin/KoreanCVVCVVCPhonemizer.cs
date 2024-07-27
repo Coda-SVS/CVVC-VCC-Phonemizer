@@ -492,9 +492,7 @@ namespace OpenUtau.Plugin.Builtin {
         public PhoneticContext VC2VCy(PhoneticContext context) {
             if (!context.isEnding) {
                 if (context.note.nucleus == "i" && context.prev.Value.coda == "null") {
-                    if (context.note.onset == "s"
-                        || context.note.onset == "j"
-                        || context.note.onset == "ss") {
+                    if (cy.Contains(context.note.onset)) { 
                         if (context.units.Last() is VCUnit vc) {
                             vc.coda += "y";
                         } else if (context.units.Last() is VVCUnit vvc) {
