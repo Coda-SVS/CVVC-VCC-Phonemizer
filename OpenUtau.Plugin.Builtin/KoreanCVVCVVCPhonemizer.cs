@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using OpenUtau.Api;
-using OpenUtau.Classic;
 using OpenUtau.Core;
 using OpenUtau.Core.Ustx;
 
@@ -12,8 +11,102 @@ namespace OpenUtau.Plugin.Builtin {
     /// 한국어 CVVC-VVC Phonemizer입니다.
     /// </summary>
     [Phonemizer("Korean CVVC-VVC Phonemizer", "KO CVVC-VVC", "NoelKM", language: "KO")]
-    public class KoreanCVVCVVCPhonemizer : BaseKoreanPhonemizer
+    public class KoreanCVVCVVCPhonemizer : Phonemizer
     {
+        public class PhoneticUnit {
+            public string nucleus { get; set; }
+            public string prefix { get; set; }
+
+            public PhoneticUnit(string nucleus, string prefix = "") {
+                this.nucleus = nucleus;
+                this.prefix = prefix;
+            }
+        }
+
+        public class CVUnit : PhoneticUnit {
+            public string onset { get; set; }
+
+            public CVUnit(string onset, string nucleus, string prefix = "") : base(nucleus, prefix) {
+                this.onset = onset;
+            }
+            
+            public override string ToString() {
+                string result = prefix != "" ? $"{prefix} " : "";
+                result += onset != "null" ? $"{onset}{nucleus}" : nucleus;
+                return result;
+            }
+        }
+
+        public class VCUnit : PhoneticUnit {
+            public string coda { get; set; }
+
+            public VCUnit(string nucleus, string coda) : base(nucleus) {
+                this.coda = coda;
+            }
+
+            public override string ToString() {
+                string result = coda != "null" ? $"{nucleus} {coda}" : nucleus;
+                return result;
+            }
+        }
+
+        public class VVCUnit : VCUnit {
+            public string coda2 { get; set; }
+
+            public VVCUnit(string coda2, string nucleus, string coda) : base(nucleus, coda) {
+                this.coda2 = coda2;
+            }
+
+            public VVCUnit(string coda2, VCUnit vc) : base(vc.nucleus, vc.coda) {
+               this.coda2 = coda2;
+            }
+
+            public VVCUnit(VCUnit vc, CVUnit cv) : base(vc.nucleus, vc.coda) {
+               this.coda2 = cv.onset;
+            }
+
+            public override string ToString() { 
+                return $"{nucleus}{coda} {coda2}";
+            }
+        }
+
+        public class VVUnit : PhoneticUnit {
+            public string nucleus2 { get; set; }
+
+            public VVUnit(string nucleus, string nucleus2) : base(nucleus) {
+                this.nucleus2 = nucleus2;
+            }
+
+            public VVUnit(VCUnit vc, CVUnit cv) : base(vc.nucleus) {
+                this.nucleus2 = cv.nucleus;
+            }
+
+            public override string ToString() {
+                return $"{nucleus} {nucleus2}";
+            }
+        }
+
+        public struct Lyrics {
+            public string onset;
+            public string nucleus;
+            public string coda;
+
+            public Lyrics(string[] phonemes) {
+                this.onset = phonemes[0];
+                this.nucleus = phonemes[1];
+                this.coda = phonemes[2];
+            }
+        }
+
+        public struct PhoneticContext {
+            public Lyrics note;
+            public Lyrics? prev;
+            public List<PhoneticUnit> units;
+            public Result? result;
+            public bool isNeighbour;
+            public bool isEnding;
+        }
+
         private readonly Dictionary<string, string> onset_symbol = new Dictionary<string, string>
         {
             { "ㄱ", "g" },
@@ -28,6 +121,7 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅅ", "s" },
             { "ㅆ", "ss" },
             { "ㅈ", "j" },
+            { "ㅉ", "jj" },
             { "ㅊ", "ch" },
             { "ㅋ", "k" },
             { "ㅌ", "t" },
@@ -119,12 +213,18 @@ namespace OpenUtau.Plugin.Builtin {
             { "null", "null"},
         };
 
-        private readonly Dictionary<string, string> coda_symbol = new Dictionary<string, string>
+        private readonly Dictionary<string, string> n_coda_symbol = new Dictionary<string, string>
         {
             { "ㄴ", "n" },
             { "ㄹ", "l" },
             { "ㅁ", "m" },
             { "ㅇ", "ng" },
+            { " ", "null"},
+            { "null", "null"}
+        };
+
+        private readonly Dictionary<string, string> k_coda_symbol = new Dictionary<string, string>
+        {
             { "ㄱ", "kcl" },
             { "ㅋ", "kcl" },
             { "ㄲ", "kcl" },
@@ -141,246 +241,23 @@ namespace OpenUtau.Plugin.Builtin {
             { "ㅃ", "pcl" },
             { "ㅍ", "pcl" },
             { " ", "null"},
-            { "null", "null"},
+            { "null", "null"}
         };
 
-        public class PhoneticUnit {
-            public string nucleus { get; protected set; }
-            public string prefix { get; protected set; }
-
-            public PhoneticUnit(string nucleus, string prefix = "") {
-                this.nucleus = nucleus;
-                this.prefix = prefix;
-            }
-
-            public void ChangePrefix(string prefix) {
-                this.prefix = prefix;
-            }
-        }
-
-        public class CVUnit : PhoneticUnit {
-            public string onset { get; private set; }
-
-            public CVUnit(string onset, string nucleus, string prefix = "") : base(nucleus, prefix) {
-                this.onset = onset;
-            }
-            
-            public override string ToString() {
-                string result = prefix != "" ? $"{prefix} " : "";
-                result += onset != "null" ? $"{onset}{nucleus}" : nucleus;
-                return result;
-            }
-        }
-
-        public class VCUnit : PhoneticUnit {
-            public string coda { get; private set; }
-
-            public VCUnit(string nucleus, string coda) : base(nucleus) {
-                this.coda = coda;
-            }
-
-            public override string ToString() {
-                string result = coda != "null" ? $"{nucleus} {coda}" : nucleus;
-                return result;
-            }
-        }
-
-        public class VVCUnit : VCUnit {
-            public string coda2 { get; private set; }
-
-            public VVCUnit(string coda2, string nucleus, string coda) : base(nucleus, coda) {
-                this.coda2 = coda2;
-            }
-
-            public VVCUnit(string coda2, VCUnit vc) : base(vc.nucleus, vc.coda) {
-               this.coda2 = coda2;
-            }
-
-            public override string ToString() { 
-                return $"{nucleus}{coda} {coda2}";
-            }
-        }
-
-        public class VVUnit : PhoneticUnit {
-            public string nucleus2 { get; private set; }
-
-            public VVUnit(string nucleus, string nucleus2) : base(nucleus) {
-                this.nucleus2 = nucleus2;
-            }
-
-            public override string ToString() {
-                return $"{nucleus} {nucleus2}";
-            }
-        }
+        private USinger singer;
 
         /// <summary>
         /// 가수를 설정합니다.
         /// </summary>
         /// <param name="singer">설정할 가수입니다.</param>
-        public override void SetSinger(USinger singer) {
-            if (this.singer == singer || singer == null || singer.SingerType != USingerType.Classic) {
-                return;
-            }
-
-            this.singer = singer;
-        }
-
-        private string? FindInOto(String phoneme, Note note, bool nullIfNotFound = false) {
-            return BaseKoreanPhonemizer.FindInOto(singer, phoneme, note, nullIfNotFound);
-        }
-
-        /// <summary>
-        /// 주어진 음표들을 음소로 변환합니다.
-        /// </summary>
-        /// <param name="notes">변환할 노트들의 배열입니다.</param>
-        /// <param name="prev">이전 노트입니다.</param>
-        /// <param name="next">다음 노트입니다.</param>
-        /// <param name="prevNeighbour">이전 인접 노트입니다.</param>
-        /// <param name="nextNeighbour">다음 인접 노트입니다.</param>
-        /// <param name="prevNeighbours">이전 인접 음표들의 배열입니다.</param>
-        /// <returns>변환된 음소 결과입니다.</returns>
-        public override Result ConvertPhonemes(Note[] notes, Note? prev, Note? next, Note? prevNeighbour, Note? nextNeighbour, Note[] prevNeighbours)
-        {
-            Note note = notes[0];
-            Hashtable lyrics = KoreanPhonemizerUtil.Variate(prevNeighbour, note, nextNeighbour);
-
-            string[] prevLyric = new string[] {
-                    (string)lyrics[0],
-                    (string)lyrics[1],
-                    (string)lyrics[2],
-            };
-            string[] thisLyric = new string[] {
-                    (string)lyrics[3],
-                    (string)lyrics[4],
-                    (string)lyrics[5],
-            };
-            string[] nextLyric = new string[] {
-                    (string)lyrics[6],
-                    (string)lyrics[7],
-                    (string)lyrics[8],
-            };
-            return CovertForCVVCVVC(notes, prevLyric, thisLyric, nextLyric, prevNeighbour, nextNeighbour);
-            /*
-
-            if (thisLyric[0] == "null")
-            {
-                return GenerateResult(FindInOto(note.lyric, note));
-            }
-            else
-            {
-                // 함수 작성이 완료되면 교체 바람
-                return CovertForCVVCVVC(notes, prevLyric, thisLyric, nextLyric, nextNeighbour);
-            }*/
-        }
-
-        /// <summary>
-        /// 주어진 음표들의 끝 소리를 생성합니다.
-        /// </summary>
-        /// <param name="notes">생성할 노트들의 배열입니다.</param>
-        /// <param name="prev">이전 노트입니다.</param>
-        /// <param name="next">다음 노트입니다.</param>
-        /// <param name="prevNeighbour">이전 인접 노트입니다.</param>
-        /// <param name="nextNeighbour">다음 인접 노트입니다.</param>
-        /// <param name="prevNeighbours">이전 인접 음표들의 배열입니다.</param>
-        /// <returns>생성된 음소 결과입니다.</returns>
-        public override Result GenerateEndSound(Note[] notes, Note? prev, Note? next, Note? prevNeighbour, Note? nextNeighbour, Note[] prevNeighbours)
-        {
-            Note note = notes[0];
-            if (prevNeighbour == null) {
-                return GenerateResult(FindInOto(note.lyric, note));
-            }
-
-            Hashtable lyrics = KoreanPhonemizerUtil.Separate(((Note)prevNeighbour).lyric);
-            string[] prevLyric = new string[] {
-                    (string)lyrics[0],
-                    (string)lyrics[1],
-                    (string)lyrics[2],
-            };
-            // 함수 작성이 완료되면 교체 바람
-            return GenerateResult(FindInOto(note.lyric, note));
-        }
-
-        /// <summary>
-        /// CVVC-VVC 형식에 맞는 음소로 변환합니다.
-        /// </summary>
-        /// <param name="notes">변환할 노트들의 배열입니다.</param>
-        /// <param name="prevLyric">이전 노트의 자모입니다.</param>
-        /// <param name="thisLyric"> 현재 노트의 자모입니다.<</param>
-        /// <param name="nextLyric">다음 노트의 자모입니다.<</param>
-        /// <param name="nextNeighbour">다음 인접 노트입니다.</param>
-        /// <returns>변환된 음소 결과입니다.</returns>
-        private Result CovertForCVVCVVC(Note[] notes, string[] prevLyric, string[] thisLyric, string[] nextLyric, Note? prevNeighbour, Note? nextNeighbour) 
-        {
-            string onset, nucleus, coda;
-
-            var (phonemes, isR) = ConvertPhonemes(thisLyric);
-            var (prevPhonemes, isPrevR) = ConvertPhonemes(prevLyric);
-            var (nextPhonemes, isNextR) = ConvertPhonemes(nextLyric);
-
-            /*
-             * CV 구성 단계
-             * 
-             * 1. - CV
-             * 공백 다음의 자음은 자음 앞에 -가 붙는다.
-             * 예시) 가, 나 -> R [- ga] R [- na]
-             * #R = 공백
-             * 
-             * 2. CV
-             * 자음 + 자음 또는 받침 + 자음은 뒤 자음 앞에 -를 붙이지 않는다.
-             * 예시) 가나 -> [- ga][a n][na], 라자 -> [- ra][a j][ja]
-             */
-
-            CVUnit cv = new CVUnit(phonemes[0], phonemes[1]);
-            if (isPrevR) {
-                cv.ChangePrefix("-");
-            }
-
-            /*
-             * 3. VC
-             * 자음과 자음 사이엔 VC 노트가 추가된다.
-             * 예시) 가다 -> [- ga][a d][da] , 사지 -> [- sa][a j][ji]
-             * 
-             * 5. VV
-             * 자음과 모음 또는 모음과 모음 또는 받침과 모음은 VCV노트로 할당한다.
-             * 예시) 가이 - > [- ga][a i], 어우 -> [- eo][eo u], 안아 -> [- a][a n][n a]
-             */
-            PhoneticUnit? vc;
-            if (phonemes[2] != "null") {
-                vc = new VCUnit(phonemes[1], phonemes[2]);
-            } else if (nextPhonemes[0] != "null") {
-                vc = new VCUnit(phonemes[1], nextPhonemes[0]);
-            } else if (!isNextR) {
-                vc = new VVUnit(phonemes[1], nextPhonemes[1]);
-            } else {
-                vc = null;
-            }
-
-            /*
-             * 3-2 받침이 kcl(ㄱ), tcl(ㄷ), pcl(ㅂ)의 경우 뒤의 자음 노트는 -가 붙는다.
-             * 예시) 갓나 -> [- ga][a tcl][- na]
-             * 
-             * 3-3
-             * 모음 뒤에 si,ji,ssi 발음이 올 경우 VC는 V C가 아닌 V Cy로 표기한다. #C = 자음
-             * 예시) 아시 -> [- a][a sy][si], 익싸 -> [- i][ikcl ssy][ssi]
-             */
-            if (vc != null) {
-                return GenerateResult(
-                    FindInOto(cv.ToString(), notes[0]),
-                    FindInOto(vc.ToString(), notes[0]),
-                    notes.Sum(n => n.duration)
-                );
-            } else {
-                return GenerateResult(FindInOto(cv.ToString(), notes[0]));
-            }
-            
-        }
+        public override void SetSinger(USinger singer) => this.singer = singer;
 
         /// <summary>
         /// 문자열 배열에서 CVUnit과 VCUnit으로 변환합니다.
         /// </summary>
         /// <param name="lyrics">자모가 나누어져 있는 가사</param>
         /// <returns>CVUnit과 VCUnit을 반환합니다.</returns>
-        private (string[], bool) ConvertPhonemes(string[] lyrics) {
+        private string[] ConvertPhonemes(string[] lyrics) {
             string onset, nucleus, coda;
 
             if (y_nucleus_symbol.ContainsKey(lyrics[1])) {
@@ -398,10 +275,282 @@ namespace OpenUtau.Plugin.Builtin {
                 onset = onset_symbol[lyrics[0]];
                 nucleus = nucleus_symbol[lyrics[1]];
             }
-            coda = coda_symbol[lyrics[2]];
 
-            return (new string[] { onset, nucleus, coda }, onset == "null" && nucleus == "null" && coda == "null");
+            coda = n_coda_symbol[lyrics[2]];
+            if(coda == "null") {
+                coda = k_coda_symbol[lyrics[2]];
+            }
+
+            return new string[] { onset, nucleus, coda };
         }
-        
+
+
+        /// <summary>
+        /// Oto에서 노트에 맞는 음성 유닛이 있는지 확인
+        /// </summary>
+        /// <param name="input">발음 기호</param>
+        /// <param name="note">노트 (color등 정보를 가져오기 위해)</param>
+        /// <param name="oto">oto 설정 파일</param>
+        /// <returns>oto에 존재하는지 확인</returns>
+        private bool CheckOtoUntilHit(string[] input, Note note, out UOto oto) {
+            oto = default;
+            var attr = note.phonemeAttributes?.FirstOrDefault(a => a.index == 0) ?? default;
+            string color = attr.voiceColor ?? "";
+
+            foreach (string test in input) {
+                string testWithAlternate = test + attr.alternate;
+                int toneShifted = note.tone + attr.toneShift;
+
+                if (TryGetOto(testWithAlternate, toneShifted, color, out oto) || TryGetOto(test, toneShifted, color, out oto)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="phoneme"></param>
+        /// <param name="tone"></param>
+        /// <param name="color"></param>
+        /// <param name="oto"></param>
+        /// <returns></returns>
+        private bool TryGetOto(string phoneme, int tone, string color, out UOto oto) {
+            return singer.TryGetMappedOto(phoneme, tone, color, out oto) && (string.IsNullOrEmpty(color) || oto.Color == color);
+        }
+
+        /// <summary>
+        /// 포네마이저 메인 루틴
+        /// </summary>
+        /// <param name="notes">변환 할 노트</param>
+        /// <param name="prev">이전 노트</param>
+        /// <param name="next">다음 노트</param>
+        /// <param name="prevNeighbour">이전 인접 노트 (prev가 note와 붙어 있는 경우, prev와 동일)</param>
+        /// <param name="nextNeighbour">다음 인접 노트 (next가 note와 붙어 있는 경우, next와 동일)</param>
+        /// <param name="prevs">+나 -와 같은 extended notes임</param>
+        /// <returns></returns>
+        public override Result Process(Note[] notes, Note? prev, Note? next, Note? prevNeighbour, Note? nextNeighbour, Note[] prevs) {
+            Note note = notes[0];
+
+            // phoneticHint가 존재할 경우, 해당 힌트를 통해 직접 반환합니다.
+            if (!string.IsNullOrEmpty(note.phoneticHint)) {
+                if (CheckOtoUntilHit(new string[] { note.phoneticHint.Normalize() }, note, out var ph)) {
+                    return new Result {
+                        phonemes = new Phoneme[] {
+                            new Phoneme {
+                                phoneme = ph.Alias,
+                            }
+                        },
+                    };
+                }
+            }
+
+            // R 노트에 대한 예외처리
+            if (note.lyric == "R") {
+                return MakeSimpleResult("R");
+            }
+
+            PhoneticContext context = InitContext(note, prev);
+            
+            // 이전 노드가 있는 경우
+            if (prevNeighbour.HasValue) {
+                context = MakeEnding(context);
+            }
+
+            context = MakePhone(context);
+
+            // 다음 노드가 없는 경우
+            if (!nextNeighbour.HasValue) {
+                context.isEnding = true;
+                context = MakeEnding(context);
+            }
+
+            return new Result {
+                phonemes = context.units.Select(p => new Phoneme { phoneme = p.ToString() }).ToArray(),
+            };
+        }
+
+        /// <summary>
+        /// 노트의 앞부분에 해당하는 음소를 처리합니다.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        public PhoneticContext MakePhone(PhoneticContext context) {
+            context = AddCVUnit(context);
+            context = CV2VV(context);
+
+            return context;
+        }
+
+        /// <summary>
+        /// 노트의 뒷부분에 해당하는 음소를 처리합니다.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        public PhoneticContext MakeEnding(PhoneticContext context) {
+            context = AddVCUnit(context);
+            context = VC2VCy(context);
+            context = VC2VVC(context);
+
+            return context;
+        }
+
+        /// <summary>
+        /// 파이프라인을 실행하기 위한 문맥 정보를 생성합니다.
+        /// </summary>
+        /// <param name="note"></param>
+        /// <param name="prev"></param>
+        /// <returns></returns>
+        public PhoneticContext InitContext(Note note, Note? prev) {
+            Hashtable lyrics = KoreanPhonemizerUtil.Separate(note.lyric.Normalize());
+            string[] phonemes = ConvertPhonemes(new string[] {
+                (string)lyrics[0],
+                (string)lyrics[1],
+                (string)lyrics[2]
+            });
+            string[]? prevPhonemes = null;
+            if (prev != null && prev.Value.lyric != "R") {
+                Hashtable prevLyrics = KoreanPhonemizerUtil.Separate(prev.Value.lyric.Normalize());
+                prevPhonemes = ConvertPhonemes(new string[] {
+                    (string)prevLyrics[0],
+                    (string)prevLyrics[1],
+                    (string)prevLyrics[2]
+                });
+            }
+            
+            return new PhoneticContext { 
+                note = new Lyrics(phonemes),
+                prev = prevPhonemes != null ? new Lyrics(prevPhonemes) : (Lyrics?)null,
+                units = new List<PhoneticUnit>(),
+                result = null
+            };
+        }
+
+        /// <summary>
+        /// 초성과 중성을 합쳐 CVUnit으로 변환합니다.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        public PhoneticContext AddCVUnit(PhoneticContext context) {
+            context.units.Add(new CVUnit(context.note.onset, context.note.nucleus));
+            if (!context.prev.HasValue) {
+                context.units.Last().prefix = "-";
+            }
+
+            return context;
+        }
+
+        /// <summary>
+        /// 중성과 종성을 합쳐 VCUnit으로 변환합니다.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        public PhoneticContext AddVCUnit(PhoneticContext context) {
+            if (context.isEnding) {
+                if (context.note.coda != "null") {
+                    context.units.Add(new VCUnit(context.note.nucleus, context.note.coda));
+                }
+            } else {
+                if (context.prev != null) {
+                    if (context.prev.Value.coda != "null") {
+                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.prev.Value.coda));
+                    } else {
+                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.note.onset));
+                    }
+                }
+            }
+
+            return context;
+        }
+
+        /// <summary>
+        /// 모음 뒤에 si, ji, ssi가 오는 경우 y추가
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        public PhoneticContext VC2VCy(PhoneticContext context) {
+            if (!context.isEnding) {
+                if (context.note.nucleus == "i" && context.prev.Value.coda == "null") {
+                    if (context.note.onset == "s"
+                        || context.note.onset == "j"
+                        || context.note.onset == "ss") {
+                        if (context.units.Last() is VCUnit vc) {
+                            vc.coda += "y";
+                        } else if (context.units.Last() is VVCUnit vvc) {
+                            vvc.coda2 += "y";
+                        }
+                    }
+                }
+            }
+
+            return context;
+        }
+
+        /// <summary>
+        /// m, n, l, ng 뒤에 gh, k, dh, t, jh, bh, p, kk, tt, ss, jj, pp가 오는 경우 VVC로 변환
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        public PhoneticContext VC2VVC(PhoneticContext context) {
+            if (!context.isEnding) {
+                if (context.prev != null) {
+                    if (context.prev.Value.coda == "n"
+                    || context.prev.Value.coda == "m"
+                    || context.prev.Value.coda == "l"
+                    || context.prev.Value.coda == "ng") {
+
+                        if (context.note.onset == "gh"
+                            || context.note.onset == "k"
+                            || context.note.onset == "kk") {
+                            VCUnit vc = (VCUnit)context.units.Last();
+                            VVCUnit vcc = new VVCUnit("kcl", vc);
+                            context.units.RemoveAt(context.units.Count - 1);
+                            context.units.Add(vcc);
+                        } else if (context.note.onset == "dh"
+                            || context.note.onset == "t"
+                            || context.note.onset == "tt"
+                            || context.note.onset == "jh"
+                            || context.note.onset == "jj") {
+                            VCUnit vc = (VCUnit)context.units.Last();
+                            VVCUnit vcc = new VVCUnit("tcl", vc);
+                            context.units.RemoveAt(context.units.Count - 1);
+                            context.units.Add(vcc);
+                        } else if (context.note.onset == "bh"
+                            || context.note.onset == "pp"
+                            || context.note.onset == "p") {
+                            VCUnit vc = (VCUnit)context.units.Last();
+                            VVCUnit vcc = new VVCUnit("pcl", vc);
+                            context.units.RemoveAt(context.units.Count - 1);
+                            context.units.Add(vcc);
+                        } else if (context.note.onset == "ss") {
+                            VCUnit vc = (VCUnit)context.units.Last();
+                            VVCUnit vcc = new VVCUnit("ss", vc);
+                            context.units.RemoveAt(context.units.Count - 1);
+                            context.units.Add(vcc);
+                        }
+                    }
+                }
+            }
+
+            return context;
+        }
+
+        /// <summary>
+        /// VCUnit에 coda가 없고, CVUnit에 onset이 없는 경우 VV로 변환
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        public PhoneticContext CV2VV(PhoneticContext context) {
+            if (context.prev.HasValue) {
+                if (context.note.onset == "null" && context.prev.Value.coda == "null") {
+                    var vv = new VVUnit(context.prev.Value.nucleus, context.note.nucleus);
+                    context.units.Clear();
+                    context.units.Add(vv);
+                }
+            }
+            
+            return context;
+        }
     }
 }
