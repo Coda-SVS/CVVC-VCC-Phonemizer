@@ -501,7 +501,6 @@ namespace OpenUtau.Plugin.Builtin {
                     vvc.coda2 += "y";
                 }
             }
-
             return context;
         }
 
@@ -525,7 +524,7 @@ namespace OpenUtau.Plugin.Builtin {
         /// <param name="context"></param>
         /// <returns></returns>
         public PhoneticContext VC2VVC(PhoneticContext context) {
-            if(!context.isEnding && context.prev != null) {
+            if (!context.isEnding && context.prev != null) {
                 if (n_coda_symbol.ContainsValue(context.prev.Value.coda) && vc2vvc.ContainsKey(context.note.onset)) {
                     context = processVC2VVC(context);
                 }
