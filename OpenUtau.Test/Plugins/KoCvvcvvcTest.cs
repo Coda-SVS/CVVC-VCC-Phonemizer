@@ -13,7 +13,10 @@ namespace OpenUtau.Plugins {
 
         protected KoreanCVVCVVCPhonemizer.PhoneticContext GetDummyContext(string lyric, string prevLyric="null") {
             KoreanCVVCVVCPhonemizer phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
-            return phonemizer.InitContext(new Phonemizer.Note() { lyric = lyric }, new Phonemizer.Note() { lyric = prevLyric });
+            return phonemizer.InitContext(
+                new Phonemizer.Note() { lyric = lyric, position = 480, duration = 240 }, 
+                new Phonemizer.Note() { lyric = prevLyric, position = 240, duration = 240 }
+            );
         }
 
         [Theory]
@@ -159,6 +162,22 @@ namespace OpenUtau.Plugins {
             context = phonemizer.CV2VV(context);
 
             Assert.True(context.units[0] is KoreanCVVCVVCPhonemizer.VVUnit);
+        }
+
+        [Fact]
+        public void PositionTestCase1() {
+            var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
+            var context = GetDummyContext("녕", "안");
+
+            context = phonemizer.MakeEnding(context);
+            context = phonemizer.MakePhone(context);
+            context.isEnding = true;
+            context = phonemizer.MakeEnding(context);
+
+            Assert.Equal(360, context.units[0].position);
+            Assert.Equal(480, context.units[1].position);
+            Assert.Equal(600, context.units[2].position);
+
         }
     }
 }
