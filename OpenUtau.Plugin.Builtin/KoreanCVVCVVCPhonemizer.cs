@@ -473,14 +473,14 @@ namespace OpenUtau.Plugin.Builtin {
         public PhoneticContext AddVCUnit(PhoneticContext context) {
             if (context.isEnding) {
                 if (context.note.coda != "null") {
-                    context.units.Add(new VCUnit(context.note.nucleus, context.note.coda, context.note.position + context.note.halfDuration));
+                    context.units.Add(new VCUnit(context.note.nucleus, context.note.coda, context.prev.Value.position + context.note.halfDuration));
                 }
             } else {
                 if (context.prev != null) {
                     if (context.prev.Value.coda != "null") {
-                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.prev.Value.coda, context.note.position - context.prev.Value.halfDuration));
+                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.prev.Value.coda, context.prev.Value.position - context.prev.Value.halfDuration));
                     } else {
-                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.note.onset, context.note.position - context.prev.Value.halfDuration));
+                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.note.onset, context.prev.Value.position - context.prev.Value.halfDuration));
                     }
                 }
             }
@@ -543,7 +543,16 @@ namespace OpenUtau.Plugin.Builtin {
 
         public Result MakeResult(PhoneticContext context) {
             return new Result {
-                phonemes = context.units.Select(p => new Phoneme { phoneme = p.ToString(), position = p.position }).ToArray(),
+                phonemes = context.units.Select(p => {
+                    // return new Phoneme { phoneme = p.ToString() };
+                    
+                    if (p is CVUnit || p is VVUnit) {
+                        return new Phoneme { phoneme = p.ToString() };
+                    } else {
+                        return new Phoneme { phoneme = p.ToString(), position = p.position };
+                    }
+                    
+                }).ToArray(),
             };
         }
     }
