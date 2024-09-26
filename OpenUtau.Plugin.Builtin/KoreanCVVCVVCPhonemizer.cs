@@ -15,19 +15,17 @@ namespace OpenUtau.Plugin.Builtin {
         public class PhoneticUnit {
             public string nucleus { get; set; }
             public string prefix { get; set; }
-            public int position { get; set; }
 
-            public PhoneticUnit(string nucleus, int position, string prefix = "") {
+            public PhoneticUnit(string nucleus, string prefix = "") {
                 this.nucleus = nucleus;
                 this.prefix = prefix;
-                this.position = position;
             }
         }
 
         public class CVUnit : PhoneticUnit {
             public string onset { get; set; }
 
-            public CVUnit(string onset, string nucleus, int position, string prefix = "") : base(nucleus, position, prefix) {
+            public CVUnit(string onset, string nucleus, string prefix = "") : base(nucleus, prefix) {
                 this.onset = onset;
             }
 
@@ -41,7 +39,7 @@ namespace OpenUtau.Plugin.Builtin {
         public class VCUnit : PhoneticUnit {
             public string coda { get; set; }
 
-            public VCUnit(string nucleus, string coda, int position) : base(nucleus, position) {
+            public VCUnit(string nucleus, string coda) : base(nucleus) {
                 this.coda = coda;
             }
 
@@ -54,15 +52,15 @@ namespace OpenUtau.Plugin.Builtin {
         public class VVCUnit : VCUnit {
             public string coda2 { get; set; }
 
-            public VVCUnit(string coda2, string nucleus, string coda, int position) : base(nucleus, coda, position) {
+            public VVCUnit(string coda2, string nucleus, string coda, int position) : base(nucleus, coda) {
                 this.coda2 = coda2;
             }
 
-            public VVCUnit(string coda2, VCUnit vc) : base(vc.nucleus, vc.coda, vc.position) {
+            public VVCUnit(string coda2, VCUnit vc) : base(vc.nucleus, vc.coda) {
                 this.coda2 = coda2;
             }
 
-            public VVCUnit(VCUnit vc, CVUnit cv) : base(vc.nucleus, vc.coda, vc.position) {
+            public VVCUnit(VCUnit vc, CVUnit cv) : base(vc.nucleus, vc.coda) {
                 this.coda2 = cv.onset;
             }
 
@@ -74,11 +72,11 @@ namespace OpenUtau.Plugin.Builtin {
         public class VVUnit : PhoneticUnit {
             public string nucleus2 { get; set; }
 
-            public VVUnit(string nucleus, string nucleus2, int position) : base(nucleus, position) {
+            public VVUnit(string nucleus, string nucleus2) : base(nucleus) {
                 this.nucleus2 = nucleus2;
             }
 
-            public VVUnit(VCUnit vc, CVUnit cv) : base(vc.nucleus, cv.position) {
+            public VVUnit(VCUnit vc, CVUnit cv) : base(vc.nucleus) {
                 this.nucleus2 = cv.nucleus;
             }
 
@@ -91,17 +89,11 @@ namespace OpenUtau.Plugin.Builtin {
             public string onset;
             public string nucleus;
             public string coda;
-            public int position;
-            public int duration;
-            public int halfDuration;
 
-            public Lyrics(string[] phonemes, int position, int duration) {
-                this.onset = phonemes[0];
-                this.nucleus = phonemes[1];
-                this.coda = phonemes[2];
-                this.position = position;
-                this.duration = duration;
-                this.halfDuration = duration / 2;
+            public Lyrics(string[] phonemes) {
+                onset = phonemes[0];
+                nucleus = phonemes[1];
+                coda = phonemes[2];
             }
         }
 
@@ -110,8 +102,6 @@ namespace OpenUtau.Plugin.Builtin {
             public Lyrics? prev;
             public Lyrics? next;
             public List<PhoneticUnit> units;
-            public bool isNeighbour;
-            public bool isEnding;
         }
 
         private readonly Dictionary<string, string> onset_symbol = new Dictionary<string, string>
@@ -300,10 +290,10 @@ namespace OpenUtau.Plugin.Builtin {
 
             try {
                 coda = n_coda_symbol[lyrics[2]];
-            } catch (KeyNotFoundException ne) {
+            } catch (KeyNotFoundException) {
                 try {
                     coda = k_coda_symbol[lyrics[2]];
-                } catch (KeyNotFoundException ke) {
+                } catch (KeyNotFoundException) {
                     coda = "null";
                 }
             }
@@ -380,16 +370,11 @@ namespace OpenUtau.Plugin.Builtin {
 
             PhoneticContext context = InitContext(note, prev, next);
 
-            // 이전 노드가 있는 경우
-            if (prevNeighbour.HasValue) {
-                context = MakeEnding(context);
-            }
-
+            // 기본 PhonemeUnit 생성
             context = MakePhone(context);
 
             // 다음 노드가 없는 경우
             if (!nextNeighbour.HasValue) {
-                context.isEnding = true;
                 context = MakeEnding(context);
             }
 
@@ -421,6 +406,11 @@ namespace OpenUtau.Plugin.Builtin {
             return context;
         }
 
+        /// <summary>
+        /// 가사의 자모를 분리하고, 음소 기호로 변환합니다.
+        /// </summary>
+        /// <param name="lyrics"></param>
+        /// <returns></returns>
         public string[] NoteToPhonemes(string lyrics) {
             Hashtable lyricsTable = KoreanPhonemizerUtil.Separate(lyrics);
             return ConvertPhonemes(new string[] {
@@ -450,9 +440,9 @@ namespace OpenUtau.Plugin.Builtin {
             }
 
             return new PhoneticContext {
-                note = new Lyrics(phonemes, note.position, note.duration),
-                prev = prevPhonemes != null ? new Lyrics(prevPhonemes, prev.Value.position, prev.Value.duration) : (Lyrics?)null,
-                next = nextPhonemes != null ? new Lyrics(nextPhonemes, next.Value.position, next.Value.duration) : (Lyrics?)null,
+                note = new Lyrics(phonemes),
+                prev = prevPhonemes != null ? new Lyrics(prevPhonemes) : (Lyrics?)null,
+                next = nextPhonemes != null ? new Lyrics(nextPhonemes) : (Lyrics?)null,
                 units = new List<PhoneticUnit>()
             };
         }
@@ -477,18 +467,10 @@ namespace OpenUtau.Plugin.Builtin {
         /// <param name="context"></param>
         /// <returns></returns>
         public PhoneticContext AddVCUnit(PhoneticContext context) {
-            if (context.isEnding) {
-                if (context.note.coda != "null") {
-                    context.units.Add(new VCUnit(context.note.nucleus, context.note.coda, context.note.position + context.note.halfDuration));
-                }
-            } else {
-                if (context.prev != null) {
-                    if (context.prev.Value.coda != "null") {
-                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.prev.Value.coda, context.prev.Value.position + context.prev.Value.halfDuration));
-                    } else {
-                        context.units.Add(new VCUnit(context.prev.Value.nucleus, context.note.onset, context.prev.Value.position + context.prev.Value.halfDuration));
-                    }
-                }
+            if (context.note.coda != "null") {
+                context.units.Add(new VCUnit(context.note.nucleus, context.note.coda));
+            } else if (context.next != null) {
+                context.units.Add(new VCUnit(context.note.nucleus, context.next.Value.onset));
             }
 
             return context;
@@ -500,11 +482,11 @@ namespace OpenUtau.Plugin.Builtin {
         /// <param name="context"></param>
         /// <returns></returns>
         public PhoneticContext VC2VCy(PhoneticContext context) {
-            if (context.isEnding || (context.note.nucleus != "i" || context.prev.Value.coda != "null")) {
+            if (context.note.coda != "null" || context.next == null || context.next.Value.nucleus != "i") {
                 return context;
             }
 
-            if (cy_symbol.Contains(context.note.onset)) {
+            if (cy_symbol.Contains(context.next.Value.onset)) {
                 if (context.units.Last() is VCUnit vc) {
                     vc.coda += "y";
                 } else if (context.units.Last() is VVCUnit vvc) {
