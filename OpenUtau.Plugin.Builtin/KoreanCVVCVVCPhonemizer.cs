@@ -373,12 +373,26 @@ namespace OpenUtau.Plugin.Builtin {
             // 기본 PhonemeUnit 생성
             context = MakePhone(context);
 
-            // 다음 노드가 없는 경우
-            if (!nextNeighbour.HasValue) {
+            // 다음 노드가 있는 경우 -> VCUnit 등 생성
+            if (context.next != null || context.note.coda != "null") {
                 context = MakeEnding(context);
             }
 
-            return MakeResult(context);
+            int totalDuration = notes.Sum(n => n.duration);
+            if (context.units.Count > 1) {
+                return new Result {
+                    phonemes = new Phoneme[] {
+                        new Phoneme { phoneme = context.units[0].ToString() },
+                        new Phoneme { phoneme = context.units[1].ToString(), position = totalDuration - Math.Min(totalDuration / 120, 3)},
+                    }
+                };
+            } else {
+                return new Result {
+                    phonemes = new Phoneme[] {
+                        new Phoneme { phoneme = context.units[0].ToString() },
+                    }
+                };
+            }
         }
 
         /// <summary>
@@ -399,10 +413,12 @@ namespace OpenUtau.Plugin.Builtin {
         /// <param name="context"></param>
         /// <returns></returns>
         public PhoneticContext MakeEnding(PhoneticContext context) {
-            context = AddVCUnit(context);
-            context = VC2VCy(context);
-            context = VC2VVC(context);
-
+            if (context.note.coda != "null" || context.next.Value.onset != "null") {
+                context = AddVCUnit(context);
+                context = VC2VCy(context);
+                context = VC2VVC(context);
+            }
+            
             return context;
         }
 
@@ -453,7 +469,7 @@ namespace OpenUtau.Plugin.Builtin {
         /// <param name="context"></param>
         /// <returns></returns>
         public PhoneticContext AddCVUnit(PhoneticContext context) {
-            context.units.Add(new CVUnit(context.note.onset, context.note.nucleus, context.note.position));
+            context.units.Add(new CVUnit(context.note.onset, context.note.nucleus));
             if (!context.prev.HasValue) {
                 context.units.Last().prefix = "-";
             }
@@ -527,27 +543,6 @@ namespace OpenUtau.Plugin.Builtin {
                 }
             }
             return context;
-        }
-
-        public Result MakeResult(PhoneticContext context) {
-            return new Result {
-                phonemes = context.units.Select((p, i) => {
-                    return new Phoneme { phoneme = p.ToString(), position = p.position };
-                    // return new Phoneme { phoneme = p.ToString() };
-                    if (i == 0 && (p is CVUnit || p is VVUnit)) {
-                        return new Phoneme { phoneme = p.ToString() };
-                    } else {
-                        return new Phoneme { phoneme = p.ToString(), position = p.position };
-                    }
-                    /*
-                    if (p is CVUnit || p is VVUnit) {
-                        return new Phoneme { phoneme = p.ToString() };
-                    } else {
-                        return new Phoneme { phoneme = p.ToString(), position = p.position };
-                    }*/
-
-                }).ToArray(),
-            };
         }
     }
 }
