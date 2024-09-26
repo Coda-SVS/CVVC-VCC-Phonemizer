@@ -383,7 +383,7 @@ namespace OpenUtau.Plugin.Builtin {
                 return new Result {
                     phonemes = new Phoneme[] {
                         new Phoneme { phoneme = context.units[0].ToString() },
-                        new Phoneme { phoneme = context.units[1].ToString(), position = totalDuration - Math.Min(totalDuration / 120, 3)},
+                        new Phoneme { phoneme = context.units[1].ToString(), position = totalDuration - Math.Min(totalDuration / 3, 120)},
                     }
                 };
             } else {
