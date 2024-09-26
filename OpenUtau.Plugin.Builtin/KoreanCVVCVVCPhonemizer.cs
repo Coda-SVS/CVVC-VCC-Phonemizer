@@ -502,10 +502,10 @@ namespace OpenUtau.Plugin.Builtin {
         /// <param name="context"></param>
         /// <returns></returns>
         public PhoneticContext VC2VVC(PhoneticContext context) {
-            if (!context.isEnding && context.prev != null) {
-                if (n_coda_symbol.ContainsValue(context.prev.Value.coda) && vc2vvc_symbol.ContainsKey(context.note.onset)) {
+            if (context.next != null) {
+                if (n_coda_symbol.ContainsValue(context.note.coda) && vc2vvc_symbol.ContainsKey(context.next.Value.onset)) {
                     VCUnit vc = (VCUnit)context.units.Last();
-                    VVCUnit vcc = new VVCUnit(vc2vvc_symbol[context.note.onset], vc);
+                    VVCUnit vcc = new VVCUnit(vc2vvc_symbol[context.next.Value.onset], vc);
                     context.units.RemoveAt(context.units.Count - 1);
                     context.units.Add(vcc);
                 }
@@ -521,7 +521,7 @@ namespace OpenUtau.Plugin.Builtin {
         public PhoneticContext CV2VV(PhoneticContext context) {
             if (context.prev.HasValue) {
                 if (context.note.onset == "null" && context.prev.Value.coda == "null") {
-                    var vv = new VVUnit(context.prev.Value.nucleus, context.note.nucleus, context.note.position);
+                    var vv = new VVUnit(context.prev.Value.nucleus, context.note.nucleus);
                     context.units.Clear();
                     context.units.Add(vv);
                 }
