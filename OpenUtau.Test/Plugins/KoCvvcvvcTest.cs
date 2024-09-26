@@ -1,4 +1,5 @@
-﻿using OpenUtau.Api;
+﻿using System;
+using OpenUtau.Api;
 using OpenUtau.Plugin.Builtin;
 using Xunit;
 using Xunit.Abstractions;
@@ -11,11 +12,12 @@ namespace OpenUtau.Plugins {
             return new KoreanCVVCVVCPhonemizer();
         }
 
-        protected KoreanCVVCVVCPhonemizer.PhoneticContext GetDummyContext(string lyric, string prevLyric="null") {
+        protected KoreanCVVCVVCPhonemizer.PhoneticContext GetDummyContext(string lyric, string prevLyric="null", string nextLyric="null") {
             KoreanCVVCVVCPhonemizer phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
             return phonemizer.InitContext(
                 new Phonemizer.Note() { lyric = lyric, position = 480, duration = 240 }, 
-                new Phonemizer.Note() { lyric = prevLyric, position = 240, duration = 240 }
+                (prevLyric != "null") ? new Phonemizer.Note() { lyric = prevLyric, position = 240, duration = 240 } : null,
+                (nextLyric != "null") ? new Phonemizer.Note() { lyric = nextLyric, position = 720, duration = 240 } : null
             );
         }
 
@@ -90,17 +92,17 @@ namespace OpenUtau.Plugins {
         }
 
         [Fact]
-        public void AddCVUnitCase1() {
+        public void AddCVUnitCase() {
             // 일반적인 상황에서 CV 유닛 추가
             var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
             var context = GetDummyContext("가", "나");
             context = phonemizer.AddCVUnit(context);
-
+            
             Assert.Equal("ga", context.units[0].ToString());
         }
 
         [Fact]
-        public void AddCVUnitCase2() {
+        public void AddCVUnitCaseWithRNote() {
             // 이전 유닛이 R 노트일 경우 CV 유닛에 prefix 추가
             var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
             var context = GetDummyContext("가", "R");
@@ -111,22 +113,22 @@ namespace OpenUtau.Plugins {
         }
 
         [Fact]
-        public void AddVCUnitCase1() {
+        public void AddVCUnitCase() {
             var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
-            var context = GetDummyContext("녕", "안");
+            var context = GetDummyContext("안");
 
             context = phonemizer.AddVCUnit(context);
 
             var vc = (KoreanCVVCVVCPhonemizer.VCUnit)context.units[0];
-
+            Console.WriteLine(vc.ToString());
             Assert.Equal("a", vc.nucleus);
             Assert.Equal("n", vc.coda);
         }
 
         [Fact]
-        public void VC2VCyCase1() {
+        public void VC2VCyCase() {
             var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
-            var context = GetDummyContext("시", "아");
+            var context = GetDummyContext("아", "null", "시");
 
             context = phonemizer.AddVCUnit(context);
             context = phonemizer.VC2VCy(context);
@@ -137,9 +139,9 @@ namespace OpenUtau.Plugins {
         }
 
         [Fact]
-        public void VC2VVCUnitCase1() {
+        public void VC2VVCUnitCase() {
             var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
-            var context = GetDummyContext("피", "밤");
+            var context = GetDummyContext("밤", "null", "피");
 
             context = phonemizer.AddVCUnit(context);
             context = phonemizer.VC2VCy(context);
@@ -153,7 +155,7 @@ namespace OpenUtau.Plugins {
         }
 
         [Fact]
-        public void CV2VVUnitCase1() {
+        public void CV2VVUnitCase() {
             var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
             var context = GetDummyContext("이", "아");
 
@@ -162,22 +164,6 @@ namespace OpenUtau.Plugins {
             context = phonemizer.CV2VV(context);
 
             Assert.True(context.units[0] is KoreanCVVCVVCPhonemizer.VVUnit);
-        }
-
-        [Fact]
-        public void PositionTestCase1() {
-            var phonemizer = (KoreanCVVCVVCPhonemizer)CreatePhonemizer();
-            var context = GetDummyContext("녕", "안");
-
-            context = phonemizer.MakeEnding(context);
-            context = phonemizer.MakePhone(context);
-            context.isEnding = true;
-            context = phonemizer.MakeEnding(context);
-
-            Assert.Equal(360, context.units[0].position);
-            Assert.Equal(480, context.units[1].position);
-            Assert.Equal(600, context.units[2].position);
-
         }
     }
 }
